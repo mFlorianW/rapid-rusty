@@ -9,11 +9,11 @@ pub trait GnssPositionSource {
     /// Registers a position consumer in the GNSS source
     ///
     /// All new positions upateds are notified through the channel to the consumer.
-    fn register_consumer(&mut self, consumer: Sender<Position>);
+    fn register_consumer(&mut self, consumer: Sender<std::sync::Arc<Position>>);
 }
 
 /// Position values that are notified by a GNNSS source
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Position {
     latitude: f64,
     longitude: f64,
@@ -45,4 +45,4 @@ impl Position {
 pub mod gpsd;
 
 #[cfg(test)]
-mod test_gpsd;
+mod tests;

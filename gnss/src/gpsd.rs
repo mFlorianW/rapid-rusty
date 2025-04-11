@@ -4,6 +4,7 @@ use gpsd_proto::{self, Tpv, UnifiedResponse};
 use std::{
     io::{self, Error, ErrorKind},
     net::SocketAddr,
+    str::FromStr,
     sync::Arc,
 };
 use tokio::{
@@ -17,7 +18,7 @@ use tokio_util::codec::{Framed, LinesCodec};
 /// GPSD daemon based GNSS source
 pub struct GpsdPositionSource {
     /// List of consumer that are notified on positions updates
-    consumer: Vec<Sender<Position>>,
+    consumer: Vec<Sender<Arc<Position>>>,
     /// Handle to the task that constantly reads from the GPSD
     task: Option<JoinHandle<()>>,
 }
@@ -53,24 +54,23 @@ impl GpsdPositionSource {
         Ok(gpsd)
     }
 
-    async fn notify_consumer(&self, pos: &Position) {
+    async fn notify_consumer(&self, pos: &Arc<Position>) {
         for consumer in self.consumer.iter() {
-            consumer.send(*pos).await.unwrap();
+            consumer.send(pos.clone()).await.unwrap();
         }
     }
 
     async fn process_msg(&self, tpv: &Tpv) {
-        let position = Position::new(
-            tpv.lat.ok_or(0.0).unwrap(),
-            tpv.lon.ok_or(0.0).unwrap(),
-            tpv.speed.ok_or(0.0).unwrap().into(),
-        );
+        let Some(lat) = tpv.lat else { return };
+        let Some(lon) = tpv.lon else { return };
+        let Some(speed) = tpv.speed else { return };
+        let position = Arc::new(Position::new(lat, lon, speed.into()));
         self.notify_consumer(&position).await;
     }
 }
 
 impl GnssPositionSource for GpsdPositionSource {
-    fn register_consumer(&mut self, consumer: Sender<Position>) {
+    fn register_consumer(&mut self, consumer: Sender<Arc<Position>>) {
         self.consumer.push(consumer);
     }
 }
@@ -87,13 +87,9 @@ async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionSource>>
             Ok(ref line) => match serde_json::from_str(line) {
                 Ok(rd) => match rd {
                     UnifiedResponse::Tpv(ref t) => {
-                        println!("tpv tpv tpv");
                         gpsd.lock().await.process_msg(t).await;
-                        println!("after process msg");
                     }
-                    _ => {
-                        println!("{:?}", line);
-                    }
+                    _ => {}
                 },
                 Err(ref e) => println!("Error: {:?}", e),
             },
