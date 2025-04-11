@@ -18,14 +18,21 @@ pub struct Position {
     latitude: f64,
     longitude: f64,
     velocity: f64,
+    time: chrono::DateTime<chrono::Utc>,
 }
 
 impl Position {
-    pub fn new(latitude: f64, longitude: f64, velocity: f64) -> Position {
+    pub fn new(
+        latitude: f64,
+        longitude: f64,
+        velocity: f64,
+        time: &chrono::DateTime<chrono::Utc>,
+    ) -> Position {
         Position {
             latitude,
             longitude,
             velocity,
+            time: *time,
         }
     }
 

@@ -1,6 +1,6 @@
 use super::{GnssPositionSource, Position};
 use futures::StreamExt;
-use gpsd_proto::{self, Tpv, UnifiedResponse};
+use gpsd_proto::{self, Tpv};
 use std::{
     io::{self, Error, ErrorKind},
     net::SocketAddr,
@@ -64,7 +64,11 @@ impl GpsdPositionSource {
         let Some(lat) = tpv.lat else { return };
         let Some(lon) = tpv.lon else { return };
         let Some(speed) = tpv.speed else { return };
-        let position = Arc::new(Position::new(lat, lon, speed.into()));
+        let Some(ref time) = tpv.time else { return };
+        let Ok(time) = chrono::DateTime::<chrono::Utc>::from_str(time) else {
+            return;
+        };
+        let position = Arc::new(Position::new(lat, lon, speed.into(), &time));
         self.notify_consumer(&position).await;
     }
 }
@@ -84,15 +88,11 @@ async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionSource>>
     let mut framed = Framed::new(stream, LinesCodec::new());
     while let Some(result) = framed.next().await {
         match result {
-            Ok(ref line) => match serde_json::from_str(line) {
-                Ok(rd) => match rd {
-                    UnifiedResponse::Tpv(ref t) => {
-                        gpsd.lock().await.process_msg(t).await;
-                    }
-                    _ => {}
-                },
-                Err(ref e) => println!("Error: {:?}", e),
-            },
+            Ok(ref line) => {
+                if let Ok(tpv) = serde_json::from_str::<Tpv>(line) {
+                    gpsd.lock().await.process_msg(&tpv).await
+                }
+            }
             Err(e) => {
                 println!("Invalid JSON received {:?}", e);
             }
