@@ -1,5 +1,6 @@
-use super::*;
 use crate::gpsd::GpsdPositionSource;
+use crate::GnssPositionSource;
+use crate::Position;
 use std::sync::Arc;
 use std::{io::Error, time::Duration};
 use tokio::{
@@ -91,7 +92,7 @@ const TPV_MSG: &str = " \
 async fn notify_consumer() {
     let expected_pos = Position::new(1.0, 1.0, 22.0);
     let (source, mut server) = test_setup("127.0.0.1:35501").await;
-    let (sender, mut receiver) = mpsc::channel(1);
+    let (sender, mut receiver) = mpsc::channel::<Arc<Position>>(1);
     source.lock().await.register_consumer(sender);
     server
         .send(TPV_MSG.as_bytes())
@@ -101,5 +102,5 @@ async fn notify_consumer() {
         .await
         .expect("Failed to receive position in required time")
         .unwrap();
-    assert_eq!(expected_pos, pos);
+    assert_eq!(expected_pos, *pos);
 }
