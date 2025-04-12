@@ -1,5 +1,8 @@
 use crate::gpsd::GpsdPositionSource;
+use crate::GnssInformation;
+use crate::GnssInformationSource;
 use crate::GnssPositionSource;
+use crate::GnssStatus;
 use crate::Position;
 use ::chrono::DateTime;
 use std::sync::Arc;
@@ -90,7 +93,7 @@ const TPV_MSG: &str = " \
 }\n\r";
 
 #[tokio::test]
-async fn notify_consumer() {
+async fn notify_position_consumer() {
     let expected_pos = Position::new(
         1.0,
         1.0,
@@ -99,7 +102,7 @@ async fn notify_consumer() {
     );
     let (source, mut server) = test_setup("127.0.0.1:35501").await;
     let (sender, mut receiver) = mpsc::channel::<Arc<Position>>(1);
-    source.lock().await.register_consumer(sender);
+    source.lock().await.register_pos_consumer(sender);
     server
         .send(TPV_MSG.as_bytes())
         .await
@@ -109,4 +112,57 @@ async fn notify_consumer() {
         .expect("Failed to receive position in required time")
         .unwrap();
     assert_eq!(expected_pos, *pos);
+}
+
+#[tokio::test]
+async fn notify_information_consumer_on_fix_change() {
+    let information = GnssInformation::new(&GnssStatus::Fix3d, 0);
+    let (source, mut server) = test_setup("127.0.0.1:35502").await;
+    let (sender, mut receiver) = mpsc::channel::<Arc<GnssInformation>>(1);
+    source.lock().await.register_info_consumer(sender);
+    server
+        .send(TPV_MSG.as_bytes())
+        .await
+        .expect("Failed to send TPV msg");
+    let info = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
+        .await
+        .expect("Failed to receive information in required time")
+        .unwrap();
+    assert_eq!(information, *info);
+}
+
+const SKY_MSG: &str = " \
+{ \
+    \"class\":\"SKY\", \
+    \"device\":\"/dev/pts/1\", \
+    \"time\":\"2005-07-08T11:28:07.114Z\", \
+    \"xdop\":1.55,\"hdop\":1.24,\"pdop\":1.99, \
+    \"satellites\":[ \
+        {\"PRN\":23,\"el\":6,\"az\":84,\"ss\":0,\"used\":false}, \
+        {\"PRN\":28,\"el\":7,\"az\":160,\"ss\":0,\"used\":false}, \
+        {\"PRN\":8,\"el\":66,\"az\":189,\"ss\":44,\"used\":true}, \
+        {\"PRN\":29,\"el\":13,\"az\":273,\"ss\":0,\"used\":false}, \
+        {\"PRN\":10,\"el\":51,\"az\":304,\"ss\":29,\"used\":true}, \
+        {\"PRN\":4,\"el\":15,\"az\":199,\"ss\":36,\"used\":true}, \
+        {\"PRN\":2,\"el\":34,\"az\":241,\"ss\":43,\"used\":true}, \
+        {\"PRN\":27,\"el\":71,\"az\":76,\"ss\":43,\"used\":true} \
+    ] \
+} \
+\n\r";
+
+#[tokio::test]
+async fn notify_information_consumer_on_sky_change() {
+    let information = GnssInformation::new(&GnssStatus::Unknown, 5);
+    let (source, mut server) = test_setup("127.0.0.1:35503").await;
+    let (sender, mut receiver) = mpsc::channel::<Arc<GnssInformation>>(1);
+    source.lock().await.register_info_consumer(sender);
+    server
+        .send(SKY_MSG.as_bytes())
+        .await
+        .expect("Failed to send SKY msg");
+    let info = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
+        .await
+        .expect("Failed to receive information in required time")
+        .unwrap();
+    assert_eq!(information, *info);
 }
