@@ -94,7 +94,7 @@ impl GnssInformation {
     }
 }
 
-pub mod gpsd;
+pub mod gpsd_source;
 
 #[cfg(test)]
 mod tests;

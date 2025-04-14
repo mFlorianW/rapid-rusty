@@ -1,4 +1,4 @@
-use crate::gpsd::GpsdPositionInformationSource;
+use crate::gpsd_source::GpsdPositionInformationSource;
 use crate::GnssInformation;
 use crate::GnssInformationSource;
 use crate::GnssPositionSource;

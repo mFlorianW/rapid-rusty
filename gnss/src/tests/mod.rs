@@ -1,1 +1,1 @@
-pub mod test_gpsd;
+pub mod test_gpsd_source;
