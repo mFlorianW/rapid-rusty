@@ -1,4 +1,4 @@
-use crate::gpsd::GpsdPositionSource;
+use crate::gpsd::GpsdPositionInformationSource;
 use crate::GnssInformation;
 use crate::GnssInformationSource;
 use crate::GnssPositionSource;
@@ -52,9 +52,9 @@ impl GpsdServer {
 
 const TIMEOUT_MS: u8 = 100;
 
-async fn test_setup(addr: &str) -> (Arc<Mutex<GpsdPositionSource>>, GpsdServer) {
+async fn test_setup(addr: &str) -> (Arc<Mutex<GpsdPositionInformationSource>>, GpsdServer) {
     let mut server = GpsdServer::new(addr).await;
-    let source = GpsdPositionSource::new(addr)
+    let source = GpsdPositionInformationSource::new(addr)
         .await
         .expect("Failed to initialze GPSD source.");
     timeout(
