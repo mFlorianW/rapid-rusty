@@ -17,18 +17,20 @@ use tokio::{
 use tokio_util::codec::{Framed, LinesCodec};
 
 /// GPSD daemon based GNSS source
-pub struct GpsdPositionSource {
+pub struct GpsdPositionInformationSource {
     /// List of consumer that are notified on positions updates
     pos_consumer: Vec<Sender<Arc<Position>>>,
     /// Handle to the task that constantly reads from the GPSD
     task: Option<JoinHandle<()>>,
     /// List of consumer that tare notified on GNSS information updates
     info_consumer: Vec<Sender<Arc<GnssInformation>>>,
+    /// The amount of satellites used for the GNSS position
     sats: usize,
+    /// The status of GNSS system
     mode: GnssStatus,
 }
 
-impl GpsdPositionSource {
+impl GpsdPositionInformationSource {
     /// Creates a new instance of the GPSD source.
     ///
     /// Every new instance creates a new connection to the GPSD daemon.
@@ -41,13 +43,13 @@ impl GpsdPositionSource {
     ///
     /// * `Ok(Arc<Mutex<<GpsdPositionSource>>)` - If the connection is successful established.
     /// * `Err(io::Error)` - If the GPSD socket connection fails or initialization fails.
-    pub async fn new(address: &str) -> Result<Arc<Mutex<GpsdPositionSource>>, Error> {
+    pub async fn new(address: &str) -> Result<Arc<Mutex<GpsdPositionInformationSource>>, Error> {
         let address: SocketAddr = match address.parse() {
             Ok(addr) => addr,
             Err(e) => return Err(io::Error::new(ErrorKind::InvalidInput, e)),
         };
         let socket = TcpStream::connect(address).await.unwrap();
-        let gpsd = Arc::new(tokio::sync::Mutex::new(GpsdPositionSource {
+        let gpsd = Arc::new(tokio::sync::Mutex::new(GpsdPositionInformationSource {
             pos_consumer: Vec::new(),
             task: None,
             info_consumer: Vec::new(),
@@ -99,13 +101,13 @@ impl GpsdPositionSource {
     }
 }
 
-impl GnssPositionSource for GpsdPositionSource {
+impl GnssPositionSource for GpsdPositionInformationSource {
     fn register_pos_consumer(&mut self, consumer: Sender<Arc<Position>>) {
         self.pos_consumer.push(consumer);
     }
 }
 
-impl GnssInformationSource for GpsdPositionSource {
+impl GnssInformationSource for GpsdPositionInformationSource {
     fn register_info_consumer(&mut self, consumer: Sender<std::sync::Arc<GnssInformation>>) {
         self.info_consumer.push(consumer);
     }
@@ -123,7 +125,7 @@ fn used_satellites(sattelites: &[Satellite]) -> usize {
     sattelites.iter().filter(|s| s.used).count()
 }
 
-async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionSource>>) {
+async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionInformationSource>>) {
     stream
         .write_all(gpsd_proto::ENABLE_WATCH_CMD.as_bytes())
         .await
