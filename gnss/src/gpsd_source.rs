@@ -1,5 +1,5 @@
 use crate::{GnssInformation, GnssInformationSource, GnssStatus};
-use crate::{GnssPositionSource, Position};
+use crate::{GnssPosition, GnssPositionSource};
 use futures::StreamExt;
 use gpsd_proto::{self, Mode, Satellite, Sky, Tpv};
 use std::{
@@ -19,7 +19,7 @@ use tokio_util::codec::{Framed, LinesCodec};
 /// GPSD daemon based GNSS source
 pub struct GpsdPositionInformationSource {
     /// List of consumer that are notified on positions updates
-    pos_consumer: Vec<Sender<Arc<Position>>>,
+    pos_consumer: Vec<Sender<Arc<GnssPosition>>>,
     /// Handle to the task that constantly reads from the GPSD
     task: Option<JoinHandle<()>>,
     /// List of consumer that tare notified on GNSS information updates
@@ -64,7 +64,7 @@ impl GpsdPositionInformationSource {
         Ok(gpsd)
     }
 
-    async fn notify_consumer(&self, pos: &Arc<Position>) {
+    async fn notify_consumer(&self, pos: &Arc<GnssPosition>) {
         for consumer in self.pos_consumer.iter() {
             consumer.send(pos.clone()).await.unwrap();
         }
@@ -84,7 +84,7 @@ impl GpsdPositionInformationSource {
         let Ok(time) = chrono::DateTime::<chrono::Utc>::from_str(time) else {
             return;
         };
-        let position = Arc::new(Position::new(lat, lon, speed.into(), &time));
+        let position = Arc::new(GnssPosition::new(lat, lon, speed.into(), &time));
         self.notify_consumer(&position).await;
         self.mode = convert_mode(&tpv.mode);
         let info = Arc::new(GnssInformation::new(&self.mode, self.sats));
@@ -102,7 +102,7 @@ impl GpsdPositionInformationSource {
 }
 
 impl GnssPositionSource for GpsdPositionInformationSource {
-    fn register_pos_consumer(&mut self, consumer: Sender<Arc<Position>>) {
+    fn register_pos_consumer(&mut self, consumer: Sender<Arc<GnssPosition>>) {
         self.pos_consumer.push(consumer);
     }
 }

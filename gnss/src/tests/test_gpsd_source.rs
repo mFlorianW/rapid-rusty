@@ -1,9 +1,9 @@
-use crate::gpsd::GpsdPositionInformationSource;
+use crate::gpsd_source::GpsdPositionInformationSource;
 use crate::GnssInformation;
 use crate::GnssInformationSource;
+use crate::GnssPosition;
 use crate::GnssPositionSource;
 use crate::GnssStatus;
-use crate::Position;
 use ::chrono::DateTime;
 use std::sync::Arc;
 use std::{io::Error, str::FromStr, time::Duration};
@@ -94,14 +94,14 @@ const TPV_MSG: &str = " \
 
 #[tokio::test]
 async fn notify_position_consumer() {
-    let expected_pos = Position::new(
+    let expected_pos = GnssPosition::new(
         1.0,
         1.0,
         22.0,
         &DateTime::<chrono::Utc>::from_str("2005-06-08T10:34:48.283Z").unwrap(),
     );
     let (source, mut server) = test_setup("127.0.0.1:35501").await;
-    let (sender, mut receiver) = mpsc::channel::<Arc<Position>>(1);
+    let (sender, mut receiver) = mpsc::channel::<Arc<GnssPosition>>(1);
     source.lock().await.register_pos_consumer(sender);
     server
         .send(TPV_MSG.as_bytes())
