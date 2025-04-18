@@ -94,6 +94,24 @@ impl GnssInformation {
     }
 }
 
+/// Position with only with latitude and longitude parts
+pub struct Position {
+    /// The latitude part of the position
+    latitude: f64,
+    /// The longitude part of the position
+    longitude: f64,
+}
+
+impl Position {
+    pub fn new(latitude: &f64, longitude: &f64) -> Position {
+        Position {
+            latitude: *latitude,
+            longitude: *longitude,
+        }
+    }
+}
+
+pub mod constant_source;
 pub mod gpsd_source;
 
 #[cfg(test)]
