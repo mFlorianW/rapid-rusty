@@ -7,6 +7,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
+    sync::Weak,
 };
 use tokio::{
     io::AsyncWriteExt,
@@ -56,7 +57,7 @@ impl GpsdPositionInformationSource {
             sats: 0,
             mode: GnssStatus::Unknown,
         }));
-        let task_gpsd = Arc::clone(&gpsd);
+        let task_gpsd = Arc::downgrade(&gpsd);
         let task = tokio::spawn(async move {
             gpsd_reader(socket, task_gpsd).await;
         });
@@ -125,7 +126,7 @@ fn used_satellites(sattelites: &[Satellite]) -> usize {
     sattelites.iter().filter(|s| s.used).count()
 }
 
-async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionInformationSource>>) {
+async fn gpsd_reader(mut stream: TcpStream, gpsd: Weak<Mutex<GpsdPositionInformationSource>>) {
     stream
         .write_all(gpsd_proto::ENABLE_WATCH_CMD.as_bytes())
         .await
@@ -133,6 +134,9 @@ async fn gpsd_reader(mut stream: TcpStream, gpsd: Arc<Mutex<GpsdPositionInformat
 
     let mut framed = Framed::new(stream, LinesCodec::new());
     while let Some(result) = framed.next().await {
+        let Some(gpsd) = Weak::upgrade(&gpsd) else {
+            break;
+        };
         match result {
             Ok(ref line) => {
                 if let Ok(tpv) = serde_json::from_str::<Tpv>(line) {
