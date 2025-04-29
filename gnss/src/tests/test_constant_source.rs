@@ -1,8 +1,9 @@
-use std::sync::Arc;
-
-use crate::constant_source::ConstantGnssPositionSource;
-use crate::{GnssPosition, GnssPositionSource, Position};
+use crate::constant_source::{ConstantGnssInformationSource, ConstantGnssPositionSource};
+use crate::{
+    GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus, Position,
+};
 use chrono::DateTime;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
@@ -56,4 +57,18 @@ async fn interpolate_between_two_points() {
     assert_eq!(position.latitude(), expected_pos.latitude());
     assert_eq!(position.longitude(), expected_pos.longitude());
     assert_eq!(position.velocity(), expected_pos.velocity());
+}
+
+#[tokio::test]
+async fn notify_gnss_informations_on_registeration() {
+    let info_source = ConstantGnssInformationSource::new(GnssStatus::Fix3d, 8);
+    let (sender, mut receiver) = mpsc::channel::<Arc<GnssInformation>>(1);
+    info_source.lock().await.register_info_consumer(sender);
+    let gnss_info = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
+        .await
+        .expect("No info received in timeout")
+        .unwrap();
+    static SATELLITES: usize = 8;
+    assert_eq!(gnss_info.status, GnssStatus::Fix3d);
+    assert_eq!(gnss_info.satellites, SATELLITES);
 }

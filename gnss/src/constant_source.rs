@@ -1,11 +1,16 @@
-use crate::{GnssPosition, GnssPositionSource, Position};
+use crate::{
+    GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus, Position,
+};
 use chrono::Utc;
 use std::{
     io::{Error, ErrorKind},
     sync::{Arc, Weak},
     time,
 };
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::{
+    sync::{mpsc::Sender, Mutex},
+    task,
+};
 use utm::{self, lat_lon_to_zone_number, lat_to_zone_letter, to_utm_wgs84, wsg84_utm_to_lat_lon};
 
 /// A GNSS source that reports GNSS positions in a constant frequency
@@ -38,7 +43,7 @@ impl GnssPositionSource for ConstantGnssPositionSource {
 }
 
 impl ConstantGnssPositionSource {
-    /// Creates a new ConstantGnssPositionInformationSource
+    /// Creates a new ConstantGnssPositionSource
     ///
     /// # Arguments
     ///
@@ -47,8 +52,8 @@ impl ConstantGnssPositionSource {
     ///
     /// # Returns
     ///
-    /// * `Ok(Arc<Mutex<<ConstantGnssPositionInformationSource>>)` - The new created ConstantGnssPositionInformationSource
-    /// * `Err(io::Error)` - If failes to create the ConstantGnssPositionInformationSource
+    /// * `Ok(Arc<Mutex<<ConstantGnssPositionSource>>)` - The new created ConstantGnssPositionSource
+    /// * `Err(io::Error)` - If failes to create the ConstantGnssPositionSource
     ///
     pub async fn new(
         positions: &[Position],
@@ -176,5 +181,50 @@ async fn constant_gnss_source_task(
     while let Some(source) = Weak::upgrade(&gnss_source) {
         timer.tick().await;
         source.lock().await.handle_tick().await;
+    }
+}
+
+/// A GNSS information source that provides GNSS information only once on subscriptions for updates
+pub struct ConstantGnssInformationSource {
+    status: GnssStatus,
+    satellites: usize,
+}
+
+impl ConstantGnssInformationSource {
+    /// Creates a new ConstantGnssPositionSource
+    ///
+    /// # Arguments
+    ///
+    /// * `status` - The status that shall be constantly reported by the source
+    /// * `satellites` - The amount of the satellites that shall be constantly by the source
+    ///
+    /// # Returns
+    ///
+    /// * `ConstantGnssInformationSource` - The created ConstantGnssInformationSource
+    ///
+    pub fn new(status: GnssStatus, satellites: usize) -> Arc<Mutex<ConstantGnssInformationSource>> {
+        Arc::new(Mutex::new(ConstantGnssInformationSource {
+            status,
+            satellites,
+        }))
+    }
+}
+
+impl GnssInformationSource for ConstantGnssInformationSource {
+    /// Register a consumer for the provided GNSS informations
+    /// Important each registered consumer is only notified only once on registations because this
+    /// a constant information source.
+    ///
+    /// # Arguments
+    ///
+    /// - `consumer` The consumer that is notified once on registration
+    ///
+    fn register_info_consumer(&mut self, consumer: Sender<std::sync::Arc<GnssInformation>>) {
+        let status = self.status;
+        let satellites = self.satellites;
+        task::spawn(async move {
+            let info = Arc::new(GnssInformation::new(&status, satellites));
+            consumer.send(info).await.unwrap();
+        });
     }
 }
