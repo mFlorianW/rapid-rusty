@@ -1,10 +1,10 @@
 use crate::gpsd_source::GpsdPositionInformationSource;
 use crate::GnssInformation;
 use crate::GnssInformationSource;
-use crate::GnssPosition;
 use crate::GnssPositionSource;
 use crate::GnssStatus;
 use ::chrono::DateTime;
+use common::GnssPosition;
 use std::sync::Arc;
 use std::{io::Error, str::FromStr, time::Duration};
 use tokio::{

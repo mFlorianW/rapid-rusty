@@ -1,7 +1,6 @@
-use crate::{
-    GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus, Position,
-};
+use crate::{GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus};
 use chrono::Utc;
+use common::Position;
 use std::{
     io::{Error, ErrorKind},
     sync::{Arc, Weak},

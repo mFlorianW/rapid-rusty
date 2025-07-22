@@ -147,7 +147,7 @@ async fn gpsd_reader(mut stream: TcpStream, gpsd: Weak<Mutex<GpsdPositionInforma
                 }
             }
             Err(e) => {
-                println!("GPSD receive error {:?}", e);
+                println!("GPSD receive error {e:?}");
             }
         }
     }
