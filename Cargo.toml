@@ -2,7 +2,9 @@
 resolver = "2"
 members = [
     "gnss",
+    "common"
 ]
 
 [workspace.dependencies]
 gnss = { path = "gnss" }
+common = { path = "common" }

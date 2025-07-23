@@ -90,8 +90,18 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -200,6 +210,7 @@ name = "gnss"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "common",
  "futures",
  "gpsd_proto",
  "serde",
@@ -357,6 +368,7 @@ dependencies = [
 name = "rapid_headless"
 version = "0.1.0"
 dependencies = [
+ "common",
  "gnss",
  "tokio",
 ]

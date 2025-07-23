@@ -1,8 +1,7 @@
 use crate::constant_source::{ConstantGnssInformationSource, ConstantGnssPositionSource};
-use crate::{
-    GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus, Position,
-};
+use crate::{GnssInformation, GnssInformationSource, GnssPositionSource, GnssStatus};
 use chrono::DateTime;
+use common::{GnssPosition, Position};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
