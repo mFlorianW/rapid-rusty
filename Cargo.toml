@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "gnss",
-    "common"
+    "common",
+    "storage",
 ]
 
 [workspace.dependencies]

@@ -1,0 +1,13 @@
+[package]
+name = "storage"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { workspace =true }
+
+tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util", "fs"] }
+tokio-util = { version = "~0.7", features = ["codec"] }
+futures = "0.3"
+utm = "0.1.6"
+async-trait = "~0.1"
