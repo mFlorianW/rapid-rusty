@@ -1,7 +1,7 @@
 use crate::constant_source::{ConstantGnssInformationSource, ConstantGnssPositionSource};
 use crate::{GnssInformation, GnssInformationSource, GnssPositionSource, GnssStatus};
-use chrono::DateTime;
-use common::{GnssPosition, Position};
+use chrono::{DateTime, Utc};
+use common::{position::GnssPosition, position::Position};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -27,7 +27,8 @@ async fn interpolate_between_two_points() {
         52.026648994186836,
         11.282535438555783,
         VELOCITY.into(),
-        &DateTime::default(),
+        &DateTime::<Utc>::default().time(),
+        &DateTime::<Utc>::default().date_naive(),
     );
     let constant_source = ConstantGnssPositionSource::new(&positions, VELOCITY)
         .await
@@ -47,7 +48,8 @@ async fn interpolate_between_two_points() {
         52.026649795432455,
         11.282531605189291,
         VELOCITY.into(),
-        &DateTime::default(),
+        &DateTime::<Utc>::default().time(),
+        &DateTime::<Utc>::default().date_naive(),
     );
     let position = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
         .await

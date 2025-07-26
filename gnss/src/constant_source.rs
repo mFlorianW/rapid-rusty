@@ -1,6 +1,6 @@
 use crate::{GnssInformation, GnssInformationSource, GnssPosition, GnssPositionSource, GnssStatus};
 use chrono::Utc;
-use common::Position;
+use common::position::Position;
 use std::{
     io::{Error, ErrorKind},
     sync::{Arc, Weak},
@@ -160,7 +160,8 @@ impl ConstantGnssPositionSource {
             lat,
             long,
             self.velocity.into(),
-            &Utc::now(),
+            &Utc::now().time(),
+            &Utc::now().date_naive(),
         ));
 
         for consumer in self.pos_consumer.iter() {

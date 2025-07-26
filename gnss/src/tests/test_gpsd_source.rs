@@ -4,7 +4,7 @@ use crate::GnssInformationSource;
 use crate::GnssPositionSource;
 use crate::GnssStatus;
 use ::chrono::DateTime;
-use common::GnssPosition;
+use common::position::GnssPosition;
 use std::sync::Arc;
 use std::{io::Error, str::FromStr, time::Duration};
 use tokio::{
@@ -94,12 +94,8 @@ const TPV_MSG: &str = " \
 
 #[tokio::test]
 async fn notify_position_consumer() {
-    let expected_pos = GnssPosition::new(
-        1.0,
-        1.0,
-        22.0,
-        &DateTime::<chrono::Utc>::from_str("2005-06-08T10:34:48.283Z").unwrap(),
-    );
+    let datetime = DateTime::<chrono::Utc>::from_str("2005-06-08T10:34:48.283Z").unwrap();
+    let expected_pos = GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive());
     let (source, mut server) = test_setup("127.0.0.1:35501").await;
     let (sender, mut receiver) = mpsc::channel::<Arc<GnssPosition>>(1);
     source.lock().await.register_pos_consumer(sender);
