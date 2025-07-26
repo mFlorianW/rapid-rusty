@@ -2,7 +2,7 @@
 //!
 //! Provides the interfaces and implementation to access GNSS on linux based systems.
 
-use common::GnssPosition;
+use common::position::GnssPosition;
 use tokio::sync::mpsc::Sender;
 
 /// Common interface that every GNSS position source must support

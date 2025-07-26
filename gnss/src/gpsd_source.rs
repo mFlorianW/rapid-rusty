@@ -82,10 +82,16 @@ impl GpsdPositionInformationSource {
         let Some(lon) = tpv.lon else { return };
         let Some(speed) = tpv.speed else { return };
         let Some(ref time) = tpv.time else { return };
-        let Ok(time) = chrono::DateTime::<chrono::Utc>::from_str(time) else {
+        let Ok(datetime) = chrono::DateTime::<chrono::Utc>::from_str(time) else {
             return;
         };
-        let position = Arc::new(GnssPosition::new(lat, lon, speed.into(), &time));
+        let position = Arc::new(GnssPosition::new(
+            lat,
+            lon,
+            speed.into(),
+            &datetime.time(),
+            &datetime.date_naive(),
+        ));
         self.notify_consumer(&position).await;
         self.mode = convert_mode(&tpv.mode);
         let info = Arc::new(GnssInformation::new(&self.mode, self.sats));
