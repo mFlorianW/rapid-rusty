@@ -1,7 +1,6 @@
-use crate::{extrac_date, extrac_double_value, extrac_time};
+use crate::serde::{date, time};
 use chrono::{NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Represents a geographical coordinate with latitude and longitude.
 ///
@@ -72,12 +71,14 @@ impl Position {
 ///
 /// This structure stores the latitude, longitude, velocity, and timestamp
 /// of a GNSS fix using UTC time.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GnssPosition {
     latitude: f64,
     longitude: f64,
     velocity: f64,
+    #[serde(with = "time")]
     time: NaiveTime,
+    #[serde(with = "date")]
     date: NaiveDate,
 }
 
@@ -121,20 +122,7 @@ impl GnssPosition {
     }
 
     pub fn from_json(json: &str) -> serde_json::Result<Self> {
-        let values: Value = serde_json::from_str(json)?;
-        let date = extrac_date(&values)?;
-        let time = extrac_time(&values)?;
-        let latitude = extrac_double_value(&values, "latitude")?;
-        let longitude = extrac_double_value(&values, "longitude")?;
-        let velocity = extrac_double_value(&values, "velocity")?;
-
-        Ok(GnssPosition {
-            latitude,
-            longitude,
-            velocity,
-            time,
-            date,
-        })
+        serde_json::from_str(json)
     }
 
     /// Returns the latitude in decimal degrees.
