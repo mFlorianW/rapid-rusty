@@ -40,7 +40,7 @@ use serde::{de::Error, Deserialize, Serialize};
 /// ```
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Session {
-    pub id: u64,
+    pub id: u64, // unused parameter, only for compatible reasons
     #[serde(with = "date")]
     pub date: NaiveDate,
     #[serde(with = "time")]
@@ -70,6 +70,17 @@ impl Session {
         serde_json::from_str(json)
     }
 
+    /// Serializes a [`Session`] into a JSON `String`.
+    ///
+    /// This function converts the given `Session` instance into its JSON string representation
+    /// using [`serde_json::to_string`].
+    ///
+    /// # Arguments
+    /// * `session` - A reference to the [`Session`] object to serialize.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - A JSON-formatted string representing the session.
+    /// * `Err(serde_json::Error)` - If serialization fails (e.g., due to invalid data).
     pub fn to_json(session: &Session) -> serde_json::Result<String> {
         serde_json::to_string(session)
     }

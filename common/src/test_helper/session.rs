@@ -10,7 +10,7 @@ use std::str::FromStr;
 pub fn get_session_as_json<'a>() -> &'a str {
     r#"
     {
-    "id": 10,
+    "id": 0,
     "date": "01.01.1970",
     "time": "13:00:00.000",
     "track": {
@@ -74,7 +74,7 @@ pub fn get_session() -> Session {
         &NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
     );
     Session {
-        id: 10,
+        id: 0,
         date: NaiveDate::parse_from_str("01.01.1970", "%d.%m.%Y").unwrap(),
         time: NaiveTime::parse_from_str("13:00:00.000", "%H:%M:%S%.3f").unwrap(),
         track: Track {
