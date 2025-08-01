@@ -85,6 +85,7 @@ impl SessionStorage for SessionFsStorage {
         let file_path = self.get_session_file_path(&id);
         let mut file = tokio::fs::File::create(&file_path).await?;
         file.write_all(json_session.as_bytes()).await?;
+        file.sync_all().await?;
         Ok(id)
     }
 
@@ -117,8 +118,8 @@ impl SessionStorage for SessionFsStorage {
                 if let Some(extension) = entry.path().extension()
                     && extension == "session"
                 {
-                    if let Ok(id) = entry.file_name().into_string() {
-                        result.push(id);
+                    if let Some(id) = entry.path().file_stem() {
+                        result.push(id.to_string_lossy().to_string());
                     }
                 }
             }
@@ -141,8 +142,8 @@ impl SessionFsStorage {
         format!(
             "{}_{}_{}",
             session.track.name.to_lowercase(),
-            session.date.format("%d.%m.%Y"),
-            session.time.format("%H:%M:%S.%3f")
+            session.date.format("%d_%m_%Y"),
+            session.time.format("%H_%M_%S_%3f")
         )
     }
 
