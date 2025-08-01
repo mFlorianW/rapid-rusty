@@ -65,6 +65,17 @@ pub trait SessionStorage: Send + Sync {
     async fn ids(&self) -> io::Result<Vec<String>>;
 }
 
+/// A file system–based implementation of session storage.
+///
+/// This struct is responsible for persisting session data as files in a specified root directory.
+/// Each session is stored as a separate file with the `.session` extension.
+///
+/// ## Important
+///
+/// `SessionFsStorage` **does not implement any internal synchronization or locking mechanisms**.
+/// Therefore, **only one instance should be used per `root_dir` in the application at any time**.
+/// Creating multiple instances pointing to the same directory may result in data races,
+/// file corruption, or unexpected behavior.
 pub struct SessionFsStorage {
     root_dir: String,
 }
