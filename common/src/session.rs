@@ -1,7 +1,6 @@
-use crate::{extrac_date, extrac_time, lap::Lap, track::Track};
+use crate::{lap::Lap, serde::date, serde::time, track::Track};
 use chrono::{NaiveDate, NaiveTime};
-use serde::de::Error;
-use serde_json::Value;
+use serde::{de::Error, Deserialize, Serialize};
 
 /// Represents a recorded driving session consisting of one or more laps.
 ///
@@ -39,10 +38,12 @@ use serde_json::Value;
 ///     laps: vec![], // Add laps here
 /// };
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Session {
-    pub id: u64,
+    pub id: u64, // unused parameter, only for compatible reasons
+    #[serde(with = "date")]
     pub date: NaiveDate,
+    #[serde(with = "time")]
     pub time: NaiveTime,
     pub track: Track,
     pub laps: Vec<Lap>,
@@ -66,45 +67,21 @@ impl Session {
     /// * `Err(serde_json::Error)` – If the string is not valid JSON or fails to deserialize.
     /// ```    
     pub fn from_json(json: &str) -> serde_json::Result<Session> {
-        match serde_json::from_str::<Value>(json) {
-            Ok(values) => {
-                let track = Session::extrac_track(&values)?;
-                let date = extrac_date(&values)?;
-                let time = extrac_time(&values)?;
-                let laps = Session::extrac_laps(&values)?;
-                Ok(Session {
-                    id: 0,
-                    date,
-                    time,
-                    track,
-                    laps,
-                })
-            }
-            Err(err) => Err(err),
-        }
+        serde_json::from_str(json)
     }
 
-    fn extrac_track(values: &serde_json::Value) -> serde_json::Result<Track> {
-        match values.get("track") {
-            Some(value) => Track::from_json(&value.to_string()),
-            None => Err(Error::missing_field("Missing object track")),
-        }
-    }
-
-    fn extrac_laps(values: &serde_json::Value) -> serde_json::Result<Vec<Lap>> {
-        match values.get("laps") {
-            Some(values) => {
-                if let Some(raw_laps) = values.as_array() {
-                    let mut laps = vec![];
-                    for raw_lap in raw_laps {
-                        let lap = Lap::from_json(&raw_lap.to_string())?;
-                        laps.push(lap);
-                    }
-                    return Ok(laps);
-                }
-                Err(Error::custom("The log point is not array object."))
-            }
-            None => Err(Error::missing_field("Missing object laps")),
-        }
+    /// Serializes a [`Session`] into a JSON `String`.
+    ///
+    /// This function converts the given `Session` instance into its JSON string representation
+    /// using [`serde_json::to_string`].
+    ///
+    /// # Arguments
+    /// * `session` - A reference to the [`Session`] object to serialize.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - A JSON-formatted string representing the session.
+    /// * `Err(serde_json::Error)` - If serialization fails (e.g., due to invalid data).
+    pub fn to_json(session: &Session) -> serde_json::Result<String> {
+        serde_json::to_string(session)
     }
 }

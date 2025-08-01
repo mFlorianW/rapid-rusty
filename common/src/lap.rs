@@ -1,6 +1,6 @@
-use crate::position::GnssPosition;
-use chrono::{Duration, NaiveTime, Timelike};
-use serde::de::Error;
+use crate::{position::GnssPosition, serde::duration_list};
+use chrono::Duration;
+use serde::{Deserialize, Serialize};
 
 /// Represents a single completed lap, including timing and telemetry data.
 ///
@@ -29,8 +29,9 @@ use serde::de::Error;
 ///     log_points: vec![/* LogPoint instances */],
 /// };
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Lap {
+    #[serde(with = "duration_list")]
     pub sectors: Vec<Duration>,
     pub log_points: Vec<GnssPosition>,
 }
@@ -74,58 +75,6 @@ impl Lap {
     }
 
     pub fn from_json(json: &str) -> serde_json::Result<Self> {
-        let values: serde_json::Value = serde_json::from_str(json)?;
-        let sectors = Lap::extrac_sectors(&values)?;
-        let log_points = Lap::extrac_log_points(&values)?;
-
-        Ok(Lap {
-            sectors,
-            log_points,
-        })
-    }
-
-    fn extrac_sectors(values: &serde_json::Value) -> serde_json::Result<Vec<Duration>> {
-        match values.get("sectors") {
-            Some(sectors) => match sectors.as_array() {
-                Some(sectors) => {
-                    let mut durations = vec![];
-                    for sector in sectors {
-                        let Some(time) = sector.as_str() else {
-                            continue;
-                        };
-                        let Ok(time) = NaiveTime::parse_from_str(time, "%H:%M:%S%.3f") else {
-                            continue;
-                        };
-                        let duration =
-                            Duration::new(time.num_seconds_from_midnight() as i64, 0).unwrap();
-                        durations.push(duration);
-                    }
-                    Ok(durations)
-                }
-                None => Err(Error::custom("The log point is not array object.")),
-            },
-            None => Err(Error::missing_field(
-                "The required field sectors is missing",
-            )),
-        }
-    }
-
-    fn extrac_log_points(values: &serde_json::Value) -> serde_json::Result<Vec<GnssPosition>> {
-        match values.get("log_points") {
-            Some(log_points) => match log_points.as_array() {
-                Some(log_points) => {
-                    let mut points: Vec<GnssPosition> = vec![];
-                    for point in log_points {
-                        let position = GnssPosition::from_json(&point.to_string())?;
-                        points.push(position);
-                    }
-                    Ok(points)
-                }
-                None => Err(Error::custom("The log point is not array object.")),
-            },
-            None => Err(Error::missing_field(
-                "The required field log_points is missing",
-            )),
-        }
+        serde_json::from_str(json)
     }
 }
