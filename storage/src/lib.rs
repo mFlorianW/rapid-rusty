@@ -97,7 +97,12 @@ impl SessionStorage for SessionFsStorage {
     }
 
     async fn delete(&self, id: &str) -> io::Result<()> {
-        Err(io::Error::from(io::ErrorKind::Unsupported))
+        let file_path = self.get_session_file_path(id);
+        if exists(&file_path).is_ok() {
+            tokio::fs::remove_file(file_path).await?;
+            return Ok(());
+        }
+        Err(io::Error::from(io::ErrorKind::NotFound))
     }
 
     async fn ids(&self) -> io::Result<Vec<String>> {

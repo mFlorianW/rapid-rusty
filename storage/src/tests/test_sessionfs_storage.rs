@@ -37,6 +37,29 @@ fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
     ids
 }
 
+fn get_session_ids(folder_name: &str) -> Vec<String> {
+    let path = get_path(folder_name);
+    let mut ids: Vec<String> = vec![];
+    if let Ok(entries) = std::fs::read_dir(&path) {
+        entries.for_each(|entry| {
+            if let Ok(entry) = entry
+                && let Some(extension) = entry.path().extension()
+                && extension == "session"
+            {
+                ids.push(
+                    entry
+                        .file_name()
+                        .into_string()
+                        .unwrap_or_else(|_| panic!("Deine mudda")),
+                );
+            }
+        });
+    } else {
+        panic!("Failed to read session ids in {}", &path);
+    }
+    ids
+}
+
 #[tokio::test]
 pub async fn read_stored_session_ids() {
     let test_folder_name = "read_stored_session_ids";
@@ -67,4 +90,21 @@ pub async fn save_load_not_existing_session() {
         .await
         .unwrap_or_else(|e| panic!("Failed to load session. Reason:{e}"));
     assert_eq!(session, loaded_session);
+}
+
+#[tokio::test]
+pub async fn delete_existing_session() {
+    let test_folder_name = "delete_existing_session";
+    let session_ids = init_none_empty_test(test_folder_name);
+
+    let storage = SessionFsStorage::new(&get_path(test_folder_name));
+
+    storage
+        .delete(&session_ids[0])
+        .await
+        .unwrap_or_else(|e| panic!("Failed to delete session. Reason {e}"));
+
+    let ids = get_session_ids(test_folder_name);
+    assert_eq!(ids.len(), 1);
+    assert_eq!(ids[0], session_ids[1]);
 }
