@@ -1,8 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "gnss",
+    "algorithm",
     "common",
+    "gnss",
     "storage",
 ]
 
