@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 ///     ],
 /// };
 /// ```
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Track {
     pub name: String,
     pub startline: Position,
