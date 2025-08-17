@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// println!("{:?}", pos);
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Position {
     pub latitude: f64,
     pub longitude: f64,
@@ -123,6 +123,13 @@ impl GnssPosition {
 
     pub fn from_json(json: &str) -> serde_json::Result<Self> {
         serde_json::from_str(json)
+    }
+
+    pub fn to_position(&self) -> Position {
+        Position {
+            latitude: self.latitude,
+            longitude: self.longitude,
+        }
     }
 
     /// Returns the latitude in decimal degrees.
