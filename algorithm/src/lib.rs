@@ -1,5 +1,11 @@
-use common::position::Position;
+use chrono::Duration;
+use common::elapsed_time_source::{ElapsedTimeSource, MonotonicTimeSource};
+use common::position::{GnssPosition, Position};
 use common::track::Track;
+use core::f64;
+use std::collections::VecDeque;
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 /// Returns a list of references to tracks whose start line is within a specified detection radius of a given position.
 ///
@@ -53,6 +59,211 @@ fn calculate_distance(pos1: &Position, pos2: &Position) -> f64 {
     let dx = 111300.0 * lat.cos() * (pos1.longitude - pos2.longitude);
     let dy = 111300.0 * (pos1.latitude - pos2.latitude);
     (dx * dx + dy * dy).sqrt()
+}
+
+/// Represents status updates emitted by the lap timer.
+///
+/// A `LaptimerStatus` is sent to registered consumers whenever an important
+/// event occurs in the lap timing process (e.g., start, sector finish, lap finish).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LaptimerStatus {
+    /// Indicates that a new lap has started.
+    LapStarted,
+
+    /// Indicates that a lap has finished.
+    /// Contains the total lap time.
+    LapFinished(Duration),
+
+    /// Indicates that a sector has been completed.
+    /// Contains the sector time.
+    SectorFinshed(Duration),
+
+    /// Represents a generic laptime (may be used for reporting purposes).
+    Laptime(Duration),
+}
+
+/// Internal finite state machine (FSM) state of the lap timer.
+///
+/// The lap timer transitions through these states while processing GNSS positions.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum LaptimerState {
+    /// Waiting for the car to cross the start line for the first time.
+    WaitingForFirstStart,
+
+    /// Actively iterating over sector points to measure sector times.
+    IteratingTrackPoints,
+
+    /// Waiting for the car to cross the finish line after the last sector.
+    WaitingForFinish,
+}
+
+/// A simple lap timer that tracks lap and sector times based on GNSS position updates.
+///
+/// # Type Parameters
+/// - `T`: The time source implementation (e.g., [`MonotonicTimeSource`]) used to measure elapsed time.
+///         Defaults to [`MonotonicTimeSource`].
+#[derive(Clone, Debug)]
+pub struct SimpleLaptimer<T: ElapsedTimeSource = MonotonicTimeSource> {
+    consumer: Vec<Sender<Arc<Mutex<LaptimerStatus>>>>,
+    track: common::track::Track,
+    last_positions: VecDeque<Position>,
+    state: LaptimerState,
+    elapsed_time_source: T,
+    sector: usize,
+    sector_start: Duration,
+}
+
+impl SimpleLaptimer<MonotonicTimeSource> {
+    /// Creates a new lap timer using the default [`MonotonicTimeSource`].
+    pub fn new(track: Track) -> Self {
+        SimpleLaptimer::new_with_source(track, MonotonicTimeSource::default())
+    }
+}
+
+impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
+    /// Creates a new lap timer with a custom time source.
+    pub fn new_with_source(track: Track, elapsed_time_source: T) -> Self {
+        SimpleLaptimer {
+            consumer: vec![],
+            last_positions: VecDeque::with_capacity(4),
+            track,
+            state: LaptimerState::WaitingForFirstStart,
+            elapsed_time_source,
+            sector: 0,
+            sector_start: Duration::zero(),
+        }
+    }
+
+    /// Registers a status consumer (message receiver) that will be notified
+    /// whenever the lap timer produces a new [`LaptimerStatus`].
+    pub fn register_status_consumer(
+        &mut self,
+        consumer: std::sync::mpsc::Sender<std::sync::Arc<Mutex<LaptimerStatus>>>,
+    ) {
+        self.consumer.push(consumer);
+    }
+
+    /// Returns the current lap time.
+    ///
+    /// If the lap timer has not yet started (`WaitingForFirstStart`),
+    /// this returns `Duration::zero()`.
+    pub fn lap_time(&self) -> Duration {
+        if self.state != LaptimerState::WaitingForFirstStart {
+            return Duration::from_std(self.elapsed_time_source.elapsed_time()).unwrap();
+        }
+        Duration::zero()
+    }
+
+    /// Updates the lap timer with a new GNSS position.
+    ///
+    /// This method:
+    /// - Adds the position to the position history.
+    /// - Ensures enough positions are stored to detect line crossing.
+    /// - Triggers FSM state transitions and event notifications if needed.
+    pub fn update_position(&mut self, pos: &GnssPosition) {
+        if self.last_positions.len() == self.last_positions.capacity() {
+            self.last_positions.pop_back();
+        }
+        self.last_positions.push_front(pos.to_position());
+        if self.last_positions.len() < 4 {
+            return;
+        }
+        self.calculate_laptimer_state();
+    }
+
+    /// Core finite state machine (FSM) logic.
+    ///
+    /// Depending on the current state and the detected crossing,
+    /// this method transitions between states and notifies consumers.
+    fn calculate_laptimer_state(&mut self) {
+        if self.state == LaptimerState::WaitingForFirstStart
+            && self.is_point_passed(&self.track.startline)
+        {
+            self.elapsed_time_source.start();
+            self.state = LaptimerState::IteratingTrackPoints;
+            self.sector_start = Duration::zero();
+            self.notify_consumer(Arc::new(Mutex::new(LaptimerStatus::LapStarted)));
+        } else if self.state == LaptimerState::IteratingTrackPoints
+            && self.is_point_passed(&self.track.sectors[self.sector])
+        {
+            self.sector += 1;
+            if self.sector >= self.track.sectors.len() {
+                self.state = LaptimerState::WaitingForFinish;
+            }
+            self.handle_sector_finsihed();
+        } else if self.state == LaptimerState::WaitingForFinish {
+            let finish_point = self
+                .track
+                .finishline
+                .map_or(self.track.startline, |finishline| finishline);
+            if self.is_point_passed(&finish_point) {
+                self.handle_sector_finsihed();
+                self.notify_consumer(Arc::new(Mutex::new(LaptimerStatus::LapFinished(
+                    Duration::from_std(self.elapsed_time_source.elapsed_time()).unwrap(),
+                ))));
+                if !self.track.sectors.is_empty() {
+                    // Start a new lap immediately
+                    self.sector = 0;
+                    self.sector_start = Duration::zero();
+                    self.elapsed_time_source.start();
+                    self.state = LaptimerState::IteratingTrackPoints;
+                    self.notify_consumer(Arc::new(Mutex::new(LaptimerStatus::LapStarted)));
+                }
+            }
+        }
+    }
+
+    /// Handles sector completion:
+    /// - Computes the sector time relative to the previous sector start.
+    /// - Notifies consumers with [`LaptimerStatus::SectorFinshed`].
+    /// - Updates the sector start timestamp.
+    fn handle_sector_finsihed(&mut self) {
+        let duration = self.elapsed_time_source.elapsed_time()
+            - self
+                .sector_start
+                .to_std()
+                .map_or(std::time::Duration::ZERO, |dur| dur);
+        self.notify_consumer(Arc::new(Mutex::new(LaptimerStatus::SectorFinshed(
+            Duration::from_std(duration).unwrap(),
+        ))));
+        self.sector_start = Duration::from_std(self.elapsed_time_source.elapsed_time())
+            .map_or(Duration::zero(), |dur| dur);
+    }
+
+    /// Detects whether a position marker (start line, sector, or finish line) has been crossed.
+    ///
+    /// Uses the last 4 recorded positions to determine:
+    /// - Whether the vehicle is within the detection range.
+    /// - Whether the crossing direction indicates a valid pass.
+    ///
+    /// Returns `true` if the point has been passed, `false` otherwise.
+    fn is_point_passed(&self, pos: &Position) -> bool {
+        let detection_range = 25_u8;
+        let mut distances = Vec::<f64>::with_capacity(4);
+        let is_in_range = self.last_positions.iter().all(|pos1| {
+            let distance = calculate_distance(pos1, pos);
+            distances.push(distance);
+            distance < detection_range.into()
+        });
+
+        if !is_in_range {
+            return false;
+        }
+
+        let first_distance = distances[0] > distances[1];
+        let last_distance = distances[2] < distances[3];
+        if first_distance && last_distance && distances[1] != distances[2] {
+            return true;
+        }
+        false
+    }
+
+    /// Notifies all registered consumers of a new lap timer status update.
+    fn notify_consumer(&self, state: Arc<Mutex<LaptimerStatus>>) {
+        self.consumer.iter().for_each(|consumer| {
+            let _ = consumer.send(state.clone());
+        });
+    }
 }
 
 #[cfg(test)]

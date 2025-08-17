@@ -2,6 +2,7 @@
 //!
 //! Provides the common data types that are used across every modul.
 
+pub mod elapsed_time_source;
 pub mod lap;
 pub mod position;
 mod serde;
