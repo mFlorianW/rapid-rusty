@@ -50,6 +50,26 @@ pub struct Session {
 }
 
 impl Session {
+    /// Creates a new [`Session`] instance with the given date, time, and track.
+    ///
+    /// The session is initialized with:
+    /// - an `id` of `0`, which can later be replaced with a unique identifier,
+    /// - the provided [`NaiveDate`] and [`NaiveTime`] values,
+    /// - the provided [`Track`],
+    /// - and an empty list of laps.
+    ///
+    /// This function provides a convenient way to construct a fresh session
+    /// before laps or a persisted identifier are added.
+    pub fn new(date: NaiveDate, time: NaiveTime, track: Track) -> Self {
+        Session {
+            id: 0,
+            date,
+            time,
+            track,
+            laps: vec![],
+        }
+    }
+
     /// Deserializes a [`Session`] instance from a JSON string.
     ///
     /// This method parses the provided JSON string and attempts to construct a [`Session`]
