@@ -1,55 +1,8 @@
 use crate::*;
 use chrono::Duration;
+use common::test_helper::elapsed_test_time_source::{set_elapsed_time, ElapsedTestTimeSource};
 use std::sync::mpsc;
 use tests::laptimer_positions::*;
-
-struct ElapsedTestTimeSource {
-    sender: std::sync::mpsc::Sender<std::time::Duration>,
-    receiver: std::sync::mpsc::Receiver<std::time::Duration>,
-    duration: std::cell::RefCell<std::time::Duration>,
-}
-
-impl Default for ElapsedTestTimeSource {
-    fn default() -> Self {
-        let (tx, rx) = mpsc::channel::<std::time::Duration>();
-        Self {
-            sender: tx,
-            receiver: rx,
-            // Not clear with a RefCell but for the tests it's fine
-            duration: std::cell::RefCell::new(std::time::Duration::ZERO),
-        }
-    }
-}
-
-impl ElapsedTestTimeSource {
-    pub fn sender(&self) -> std::sync::mpsc::Sender<std::time::Duration> {
-        self.sender.clone()
-    }
-
-    fn receive(&self) -> std::time::Duration {
-        if let Ok(duration) = self.receiver.try_recv() {
-            *self.duration.borrow_mut() = duration;
-        }
-        *self.duration.borrow()
-    }
-}
-
-impl ElapsedTimeSource for ElapsedTestTimeSource {
-    fn start(&mut self) {}
-
-    fn elapsed_time(&self) -> std::time::Duration {
-        self.receive()
-    }
-}
-
-fn set_elapsed_time(
-    sender: &std::sync::mpsc::Sender<std::time::Duration>,
-    duration: &std::time::Duration,
-) {
-    sender
-        .send(*duration)
-        .unwrap_or_else(|_| panic!("Failed to send duration to the test elapsed time source"));
-}
 
 #[tokio::test]
 pub async fn drive_whole_map_with_sectors() {
