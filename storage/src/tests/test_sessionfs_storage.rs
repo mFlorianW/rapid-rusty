@@ -3,7 +3,7 @@ use super::super::*;
 #[cfg(test)]
 use common::test_helper::session::get_session;
 #[cfg(test)]
-use std::{os::unix::fs::MetadataExt, u64};
+use std::os::unix::fs::MetadataExt;
 
 #[cfg(test)]
 fn get_path(folder_name: &str) -> String {
