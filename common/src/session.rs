@@ -1,6 +1,6 @@
 use crate::{lap::Lap, serde::date, serde::time, track::Track};
 use chrono::{NaiveDate, NaiveTime};
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 /// Represents a recorded driving session consisting of one or more laps.
 ///

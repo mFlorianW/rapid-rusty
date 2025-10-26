@@ -159,3 +159,34 @@ impl GnssPosition {
         self.velocity
     }
 }
+
+// The GNSS status from a GNSS source
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GnssStatus {
+    // The Status of the GNSS is unknow
+    Unknown,
+    // The GNSS system has no fix all reported positions are maybe wrong
+    NoFix,
+    // The GNSS system is in the 2d fix mode only latitude and longitude are valid
+    Fix2d,
+    // The GNSS system is in the 3d Fix mode latitue, longitude and alitude(currently not reported) are valid
+    Fix3d,
+}
+
+// Information of the GNSS.
+// The information contains the status of the receiver and the amount of satellites that are used
+// for the position, time and velocitiy informations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GnssInformation {
+    status: GnssStatus,
+    satellites: usize,
+}
+
+impl GnssInformation {
+    pub fn new(status: &GnssStatus, satellites: usize) -> GnssInformation {
+        GnssInformation {
+            status: *status,
+            satellites,
+        }
+    }
+}

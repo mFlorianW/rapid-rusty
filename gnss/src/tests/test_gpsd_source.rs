@@ -1,16 +1,15 @@
-use crate::gpsd_source::GpsdPositionInformationSource;
-use crate::GnssInformation;
-use crate::GnssInformationSource;
-use crate::GnssPositionSource;
-use crate::GnssStatus;
-use ::chrono::DateTime;
-use common::position::GnssPosition;
-use std::sync::Arc;
-use std::{io::Error, str::FromStr, time::Duration};
+use crate::gpsd_source::GpsdModule;
+use chrono::DateTime;
+use common::position::{GnssInformation, GnssPosition, GnssStatus};
+use core::panic;
+use module_core::{
+    test_helper::{stop_module, wait_for_event},
+    Event, EventBus, EventKind, Module, ModuleCtx,
+};
+use std::{io::Error, str::FromStr};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::{mpsc, Mutex},
     time::timeout,
 };
 
@@ -52,33 +51,43 @@ impl GpsdServer {
 
 const TIMEOUT_MS: u8 = 100;
 
-async fn test_setup(addr: &str) -> (Arc<Mutex<GpsdPositionInformationSource>>, GpsdServer) {
+async fn test_setup(
+    addr: &str,
+    ctx: ModuleCtx,
+) -> (tokio::task::JoinHandle<Result<(), ()>>, GpsdServer) {
     let mut server = GpsdServer::new(addr).await;
-    let source = GpsdPositionInformationSource::new(addr)
-        .await
-        .expect("Failed to initialze GPSD source.");
+    let owned_addr = addr.to_owned();
+    let gpsd_module_handle = tokio::spawn(async move {
+        let gpsd_source = GpsdModule::new(ctx, &owned_addr).await;
+        match gpsd_source {
+            Ok(mut gpsd_source) => gpsd_source.run().await,
+            Err(_) => Err(()),
+        }
+    });
     timeout(
-        Duration::from_millis(TIMEOUT_MS.into()),
+        std::time::Duration::from_millis(TIMEOUT_MS.into()),
         server.accept_client(),
     )
     .await
     .unwrap_or_else(|_| panic!("Enable no client connected within timeout of 100ms"));
-    (source, server)
+    (gpsd_module_handle, server)
 }
 
 #[tokio::test]
 async fn enable_gpsd_notifications() {
-    let (_, mut server) = test_setup("127.0.0.1:35500").await;
+    let event_bus = EventBus::new();
+    let (mut gpsd_handle, mut server) = test_setup("127.0.0.1:35500", event_bus.context()).await;
     let enable_cmd: &str = r#"?WATCH={"enable":true,"json":true}"#;
     let mut buf: Vec<u8> = vec![0; enable_cmd.len()];
     let _ = timeout(
-        Duration::from_millis(TIMEOUT_MS.into()),
+        std::time::Duration::from_millis(TIMEOUT_MS.into()),
         server.receive(&mut buf),
     )
     .await
     .unwrap_or_else(|_| panic!("Enable command not received in {:?} ms", TIMEOUT_MS));
     let received_cmd =
         std::str::from_utf8(&buf).expect("Received enable command is not a valid string");
+    let _ = stop_module(&event_bus, &mut gpsd_handle).await;
     assert_eq!(received_cmd, enable_cmd);
 }
 
@@ -93,38 +102,54 @@ const TPV_MSG: &str = " \
 }\n\r";
 
 #[tokio::test]
-async fn notify_position_consumer() {
+async fn notify_gnss_position() {
+    let event_bus = EventBus::new();
     let datetime = DateTime::<chrono::Utc>::from_str("2005-06-08T10:34:48.283Z").unwrap();
     let expected_pos = GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive());
-    let (source, mut server) = test_setup("127.0.0.1:35501").await;
-    let (sender, mut receiver) = mpsc::channel::<Arc<GnssPosition>>(1);
-    source.lock().await.register_pos_consumer(sender);
+    let (mut source, mut server) = test_setup("127.0.0.1:35501", event_bus.context()).await;
     server
         .send(TPV_MSG.as_bytes())
         .await
         .expect("Failed to send TPV msg");
-    let pos = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
-        .await
-        .expect("Failed to receive position in required time")
-        .unwrap();
-    assert_eq!(expected_pos, *pos);
+    assert!(wait_for_event(
+        &mut event_bus.subscribe(),
+        std::time::Duration::from_millis(TIMEOUT_MS.into()),
+        |e: &Event| -> bool {
+            if let EventKind::GnssPositionEvent(ref position) = e.kind
+                && **position == expected_pos
+            {
+                return true;
+            }
+            false
+        },
+    )
+    .await);
+    stop_module(&event_bus, &mut source).await;
 }
 
 #[tokio::test]
-async fn notify_information_consumer_on_fix_change() {
-    let information = GnssInformation::new(&GnssStatus::Fix3d, 0);
-    let (source, mut server) = test_setup("127.0.0.1:35502").await;
-    let (sender, mut receiver) = mpsc::channel::<Arc<GnssInformation>>(1);
-    source.lock().await.register_info_consumer(sender);
+async fn notify_gnss_information_on_fix_change() {
+    let event_bus = EventBus::default();
+    let expected_information = GnssInformation::new(&GnssStatus::Fix3d, 0);
+    let (mut source, mut server) = test_setup("127.0.0.1:35502", event_bus.context()).await;
     server
         .send(TPV_MSG.as_bytes())
         .await
         .expect("Failed to send TPV msg");
-    let info = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
-        .await
-        .expect("Failed to receive information in required time")
-        .unwrap();
-    assert_eq!(information, *info);
+    assert!(wait_for_event(
+        &mut event_bus.subscribe(),
+        std::time::Duration::from_millis(TIMEOUT_MS.into()),
+        |e: &Event| -> bool {
+            if let EventKind::GnssInformationEvent(ref information) = e.kind
+                && **information == expected_information
+            {
+                return true;
+            }
+            false
+        },
+    )
+    .await);
+    stop_module(&event_bus, &mut source).await;
 }
 
 const SKY_MSG: &str = " \
@@ -147,18 +172,26 @@ const SKY_MSG: &str = " \
 \n\r";
 
 #[tokio::test]
-async fn notify_information_consumer_on_sky_change() {
-    let information = GnssInformation::new(&GnssStatus::Unknown, 5);
-    let (source, mut server) = test_setup("127.0.0.1:35503").await;
-    let (sender, mut receiver) = mpsc::channel::<Arc<GnssInformation>>(1);
-    source.lock().await.register_info_consumer(sender);
+async fn notify_gnss_information_on_sky_change() {
+    let event_bus = EventBus::default();
+    let expected_information = GnssInformation::new(&GnssStatus::Unknown, 5);
+    let (mut source, mut server) = test_setup("127.0.0.1:35503", event_bus.context()).await;
     server
         .send(SKY_MSG.as_bytes())
         .await
         .expect("Failed to send SKY msg");
-    let info = timeout(Duration::from_millis(TIMEOUT_MS.into()), receiver.recv())
-        .await
-        .expect("Failed to receive information in required time")
-        .unwrap();
-    assert_eq!(information, *info);
+    assert!(wait_for_event(
+        &mut event_bus.subscribe(),
+        std::time::Duration::from_millis(TIMEOUT_MS.into()),
+        |e: &Event| -> bool {
+            if let EventKind::GnssInformationEvent(ref information) = e.kind
+                && **information == expected_information
+            {
+                return true;
+            }
+            false
+        },
+    )
+    .await);
+    stop_module(&event_bus, &mut source).await;
 }

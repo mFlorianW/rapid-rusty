@@ -1,79 +1,39 @@
-use crate::{GnssInformation, GnssInformationSource, GnssStatus};
-use crate::{GnssPosition, GnssPositionSource};
+use crate::GnssPosition;
+use common::position::{self, GnssInformation, GnssStatus};
 use futures::StreamExt;
 use gpsd_proto::{self, Mode, Satellite, Sky, Tpv};
+use module_core::Event;
+use module_core::{EventKind, Module, ModuleCtx};
 use std::{
     io::{self, Error, ErrorKind},
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::Weak,
 };
-use tokio::{
-    io::AsyncWriteExt,
-    net::TcpStream,
-    sync::{mpsc::Sender, Mutex},
-    task::JoinHandle,
-};
+use tokio::sync::Notify;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 use tokio_util::codec::{Framed, LinesCodec};
 
 /// GPSD daemon based GNSS source
-pub struct GpsdPositionInformationSource {
-    /// List of consumer that are notified on positions updates
-    pos_consumer: Vec<Sender<Arc<GnssPosition>>>,
-    /// Handle to the task that constantly reads from the GPSD
-    task: Option<JoinHandle<()>>,
-    /// List of consumer that tare notified on GNSS information updates
-    info_consumer: Vec<Sender<Arc<GnssInformation>>>,
-    /// The amount of satellites used for the GNSS position
-    sats: usize,
+struct GpsdPositionInformationRuntime {
     /// The status of GNSS system
     mode: GnssStatus,
+    /// The amount of satellites used for the GNSS position
+    sats: usize,
+    /// The start signal for the GPSD task to start execution
+    notify: Arc<Notify>,
+    /// The sender of the event_bus to emit the events
+    sender: tokio::sync::broadcast::Sender<Event>,
 }
 
-impl GpsdPositionInformationSource {
-    /// Creates a new instance of the GPSD source.
-    ///
-    /// Every new instance creates a new connection to the GPSD daemon.
-    ///
-    /// # Arguments
-    ///
-    /// * `address` - The address of the GPSD daemon to try to connect to.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Arc<Mutex<<GpsdPositionSource>>)` - If the connection is successful established.
-    /// * `Err(io::Error)` - If the GPSD socket connection fails or initialization fails.
-    pub async fn new(address: &str) -> Result<Arc<Mutex<GpsdPositionInformationSource>>, Error> {
-        let address: SocketAddr = match address.parse() {
-            Ok(addr) => addr,
-            Err(e) => return Err(io::Error::new(ErrorKind::InvalidInput, e)),
-        };
-        let socket = TcpStream::connect(address).await.unwrap();
-        let gpsd = Arc::new(tokio::sync::Mutex::new(GpsdPositionInformationSource {
-            pos_consumer: Vec::new(),
-            task: None,
-            info_consumer: Vec::new(),
-            sats: 0,
+impl GpsdPositionInformationRuntime {
+    /// Creates a new instance of the GPSD runtime.
+    pub fn new(sender: tokio::sync::broadcast::Sender<Event>) -> Self {
+        GpsdPositionInformationRuntime {
             mode: GnssStatus::Unknown,
-        }));
-        let task_gpsd = Arc::downgrade(&gpsd);
-        let task = tokio::spawn(async move {
-            gpsd_reader(socket, task_gpsd).await;
-        });
-        gpsd.lock().await.task = Some(task);
-        Ok(gpsd)
-    }
-
-    async fn notify_consumer(&self, pos: &Arc<GnssPosition>) {
-        for consumer in self.pos_consumer.iter() {
-            consumer.send(pos.clone()).await.unwrap();
-        }
-    }
-
-    async fn notify_info_consumer(&self, info: &Arc<GnssInformation>) {
-        for consumer in self.info_consumer.iter() {
-            consumer.send(info.clone()).await.unwrap();
+            sats: 0,
+            notify: Arc::new(Notify::new()),
+            sender,
         }
     }
 
@@ -92,10 +52,14 @@ impl GpsdPositionInformationSource {
             &datetime.time(),
             &datetime.date_naive(),
         ));
-        self.notify_consumer(&position).await;
+        let _ = self.sender.send(Event {
+            kind: EventKind::GnssPositionEvent(position.clone()),
+        });
         self.mode = convert_mode(&tpv.mode);
         let info = Arc::new(GnssInformation::new(&self.mode, self.sats));
-        self.notify_info_consumer(&info).await;
+        let _ = self.sender.send(Event {
+            kind: EventKind::GnssInformationEvent(info.clone()),
+        });
     }
 
     async fn process_sky_msg(&mut self, sky: &Sky) {
@@ -104,19 +68,9 @@ impl GpsdPositionInformationSource {
         };
         self.sats = used_satellites(sat);
         let info = Arc::new(GnssInformation::new(&self.mode, self.sats));
-        self.notify_info_consumer(&info).await;
-    }
-}
-
-impl GnssPositionSource for GpsdPositionInformationSource {
-    fn register_pos_consumer(&mut self, consumer: Sender<Arc<GnssPosition>>) {
-        self.pos_consumer.push(consumer);
-    }
-}
-
-impl GnssInformationSource for GpsdPositionInformationSource {
-    fn register_info_consumer(&mut self, consumer: Sender<std::sync::Arc<GnssInformation>>) {
-        self.info_consumer.push(consumer);
+        let _ = self.sender.send(Event {
+            kind: EventKind::GnssInformationEvent(info.clone()),
+        });
     }
 }
 
@@ -132,29 +86,74 @@ fn used_satellites(sattelites: &[Satellite]) -> usize {
     sattelites.iter().filter(|s| s.used).count()
 }
 
-async fn gpsd_reader(mut stream: TcpStream, gpsd: Weak<Mutex<GpsdPositionInformationSource>>) {
+async fn gpsd_reader(mut stream: TcpStream, mut runtime: GpsdPositionInformationRuntime) {
+    runtime.notify.notified().await;
     stream
         .write_all(gpsd_proto::ENABLE_WATCH_CMD.as_bytes())
         .await
         .unwrap();
-
     let mut framed = Framed::new(stream, LinesCodec::new());
     while let Some(result) = framed.next().await {
-        let Some(gpsd) = Weak::upgrade(&gpsd) else {
-            break;
-        };
         match result {
             Ok(ref line) => {
                 if let Ok(tpv) = serde_json::from_str::<Tpv>(line) {
-                    gpsd.lock().await.process_tpv_msg(&tpv).await
+                    runtime.process_tpv_msg(&tpv).await;
                 }
                 if let Ok(sky) = serde_json::from_str::<Sky>(line) {
-                    gpsd.lock().await.process_sky_msg(&sky).await;
+                    runtime.process_sky_msg(&sky).await;
                 }
             }
             Err(e) => {
                 println!("GPSD receive error {e:?}");
             }
         }
+    }
+}
+
+pub struct GpsdModule {
+    ctx: ModuleCtx,
+    gpsd_handle: tokio::task::JoinHandle<()>,
+    task_notify: Arc<Notify>,
+}
+
+impl GpsdModule {
+    pub async fn new(ctx: ModuleCtx, address: &str) -> Result<Self, Error> {
+        let address: SocketAddr = match address.parse() {
+            Ok(addr) => addr,
+            Err(e) => return Err(io::Error::new(ErrorKind::InvalidInput, e)),
+        };
+        let socket = TcpStream::connect(address).await?;
+        let rt = GpsdPositionInformationRuntime::new(ctx.sender.clone());
+        let notify = rt.notify.clone();
+        let gpsd_reader_task_handle = tokio::spawn(async move { gpsd_reader(socket, rt).await });
+        Ok(GpsdModule {
+            ctx,
+            gpsd_handle: gpsd_reader_task_handle,
+            task_notify: notify,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl Module for GpsdModule {
+    async fn run(&mut self) -> Result<(), ()> {
+        self.task_notify.notify_one();
+        let mut run = true;
+        while run {
+            tokio::select! {
+                event = self.ctx.receiver.recv() => {
+                    match event {
+                        Ok(event) => {
+                            if let EventKind::QuitEvent = event.kind {
+                                self.gpsd_handle.abort();
+                                run = false;
+                            }
+                        }
+                        Err(e) => println!("Error: {}", e),
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
