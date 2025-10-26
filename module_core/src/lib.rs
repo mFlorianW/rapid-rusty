@@ -133,6 +133,7 @@ pub trait Module {
 ///
 /// Each `ModuleCtx` owns both a sender and a receiver, allowing the module
 /// to both publish and listen for events concurrently.
+#[derive(Debug)]
 pub struct ModuleCtx {
     /// The broadcast sender used to publish events.
     pub sender: tokio::sync::broadcast::Sender<Event>,
