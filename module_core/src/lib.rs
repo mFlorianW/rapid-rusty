@@ -43,6 +43,21 @@ pub enum EventKind {
     /// This event carries a [`common::position::GnssInformation`] structure
     /// with the current information of the navigation system.
     GnssInformationEvent(GnssInformationPtr),
+
+    /// Indicates that a new lap has started.
+    LapStartedEvent,
+
+    /// Indicates that a lap has finished.
+    /// This event carries a [`std:time::Duration`] structure
+    LapFinishedEvent(std::time::Duration),
+
+    /// Indicates that a sector has been completed.
+    /// This event carries a [`std:time::Duration`] structure
+    SectorFinshedEvent(std::time::Duration),
+
+    /// Represents the current laptime (may be used for reporting purposes).
+    /// This event carries a [`std:time::Duration`] structure.
+    CurrentLaptimeEvent(std::time::Duration),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.
