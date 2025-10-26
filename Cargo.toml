@@ -5,8 +5,10 @@ members = [
     "common",
     "gnss",
     "storage",
+    "module_core",
 ]
 
 [workspace.dependencies]
 gnss = { path = "gnss" }
 common = { path = "common" }
+module_core = { path = "module_core" }
