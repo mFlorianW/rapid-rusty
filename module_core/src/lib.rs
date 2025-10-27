@@ -11,6 +11,77 @@ pub struct Event {
     pub kind: EventKind,
 }
 
+/// Represents a generic request message.
+///
+/// # Fields
+/// - `id`: A unique identifier for the request.  Used to correlate
+///   requests with responses.
+/// - `sender_address`: An identifier for the sender (e.g., node ID, IP address
+///   as `u32`, or similar). Allows the receiver to know where the request came from.
+/// - `data`: The payload or content of the request. The type `T` is generic
+///   so that `Request` can carry any kind of data.//
+///
+/// # Type Parameters
+/// - `T`: The type of the request payload.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Request<T> {
+    pub id: u64,
+    pub sender_addr: u64,
+    pub data: T,
+}
+
+/// Represents a generic response message.
+///
+/// # Fields
+/// - `id`: A unique identifier for the request.  Used to correlate
+///   requests with responses.
+/// - `sender_address`: An identifier for the sender (e.g., node ID, IP address
+///   as `u32`, or similar). Allows the receiver to know where the request came from.
+/// - `data`: The payload or content of the request. The type `T` is generic
+///   so that `Request` can carry any kind of data.//
+///
+/// # Type Parameters
+/// - `T`: The type of the request payload.
+#[derive(Debug, Clone)]
+pub struct Response<T = ()> {
+    pub id: u64,
+    pub receiver_addr: u64,
+    pub data: T,
+}
+
+/// Compares two [`Response`] values containing [`Arc`]-wrapped [`RwLock`] data.
+///
+/// This implementation considers two responses equal if:
+/// - Their [`id`] fields are identical.
+/// - The contents of their inner values (protected by the [`RwLock`]) are equal,
+///   as determined by the [`PartialEq`] implementation of the inner type `T`.
+///
+/// Lock poisoning is handled gracefully:
+/// if either [`RwLock`] is poisoned (due to a panic while it was previously held
+/// for writing), the implementation recovers the underlying data using
+/// [`PoisonError::into_inner()`] and continues the comparison instead of panicking.
+///
+/// # Type Parameters
+/// - `T`: The type of the data stored within the [`RwLock`].
+///   Must implement [`PartialEq`] to support equality comparison.
+///
+/// # Thread Safety
+/// Only shared (read) access is acquired from both locks during comparison,
+/// ensuring that the operation does not block other readers and does not modify data.
+impl<T> PartialEq for Response<std::sync::Arc<std::sync::RwLock<T>>>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.id != other.id {
+            return false;
+        }
+        let self_data = self.data.read().unwrap_or_else(|e| e.into_inner());
+        let other_data = other.data.read().unwrap_or_else(|e| e.into_inner());
+        *self_data == *other_data
+    }
+}
+
 /// A thread-safe, reference-counted pointer to a [`GnssPosition`].
 ///
 /// This type alias wraps a [`GnssPosition`] inside an [`Arc`], allowing
