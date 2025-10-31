@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 common = { workspace = true }
+module_core = { workspace = true }
+tracing = { workspace = true }
+test-log.workspace =  true
 
 tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util", "fs"] }
 tokio-util = { version = "~0.7", features = ["codec"] }

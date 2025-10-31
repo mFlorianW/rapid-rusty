@@ -5,8 +5,13 @@ members = [
     "common",
     "gnss",
     "storage",
+    "module_core",
 ]
 
 [workspace.dependencies]
 gnss = { path = "gnss" }
 common = { path = "common" }
+module_core = { path = "module_core" }
+
+tracing = "~0.1"
+test-log = { version = "~0.2", features = [ "trace" ] }

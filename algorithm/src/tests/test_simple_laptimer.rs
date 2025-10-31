@@ -1,137 +1,153 @@
 use crate::*;
-use chrono::Duration;
-use std::sync::mpsc;
+use common::lap;
+use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
+use module_core::test_helper::{stop_module, wait_for_event};
+use module_core::{EventBus, Module, payload_ref};
+use std::sync::Arc;
 use tests::laptimer_positions::*;
 
-struct ElapsedTestTimeSource {
-    sender: std::sync::mpsc::Sender<std::time::Duration>,
-    receiver: std::sync::mpsc::Receiver<std::time::Duration>,
-    duration: std::cell::RefCell<std::time::Duration>,
-}
-
-impl Default for ElapsedTestTimeSource {
-    fn default() -> Self {
-        let (tx, rx) = mpsc::channel::<std::time::Duration>();
-        Self {
-            sender: tx,
-            receiver: rx,
-            // Not clear with a RefCell but for the tests it's fine
-            duration: std::cell::RefCell::new(std::time::Duration::ZERO),
-        }
-    }
-}
-
-impl ElapsedTestTimeSource {
-    pub fn sender(&self) -> std::sync::mpsc::Sender<std::time::Duration> {
-        self.sender.clone()
-    }
-
-    fn receive(&self) -> std::time::Duration {
-        if let Ok(duration) = self.receiver.try_recv() {
-            *self.duration.borrow_mut() = duration;
-        }
-        *self.duration.borrow()
-    }
-}
-
-impl ElapsedTimeSource for ElapsedTestTimeSource {
-    fn start(&mut self) {}
-
-    fn elapsed_time(&self) -> std::time::Duration {
-        self.receive()
-    }
-}
-
-fn set_elapsed_time(
-    sender: &std::sync::mpsc::Sender<std::time::Duration>,
-    duration: &std::time::Duration,
-) {
-    sender
-        .send(*duration)
-        .unwrap_or_else(|_| panic!("Failed to send duration to the test elapsed time source"));
+fn publish_position(event_bus: &EventBus, pos: &GnssPosition) {
+    event_bus.publish(&Event {
+        kind: EventKind::GnssPositionEvent(Arc::new(*pos)),
+    });
 }
 
 #[tokio::test]
 pub async fn drive_whole_map_with_sectors() {
+    let event_bus = EventBus::default();
     let elapsed_time_source = ElapsedTestTimeSource::default();
     let elapsed_time_source_sender = elapsed_time_source.sender();
-    let mut laptimer = SimpleLaptimer::new_with_source(
-        common::test_helper::track::get_track(),
-        elapsed_time_source,
-    );
-    let (sender, receiver) = mpsc::channel::<Arc<Mutex<LaptimerStatus>>>();
-    laptimer.register_status_consumer(sender);
+    let laptimer_module_ctx = event_bus.context();
+    let mut laptimer_handle = tokio::spawn(async {
+        let mut laptimer = SimpleLaptimer::new_with_source(
+            common::test_helper::track::get_track(),
+            elapsed_time_source,
+            laptimer_module_ctx,
+        );
+        laptimer.run().await
+    });
 
-    laptimer.update_position(&get_finishline_postion1());
-    laptimer.update_position(&get_finishline_postion2());
-    laptimer.update_position(&get_finishline_postion3());
-    laptimer.update_position(&get_finishline_postion4());
+    {
+        // Lapstart
+        publish_position(&event_bus, &get_finishline_postion1());
+        publish_position(&event_bus, &get_finishline_postion2());
+        publish_position(&event_bus, &get_finishline_postion3());
+        publish_position(&event_bus, &get_finishline_postion4());
+        let exp_event = Event {
+            kind: EventKind::LapStartedEvent,
+        };
+        let event = wait_for_event(
+            &mut event_bus.subscribe(),
+            Duration::from_millis(100),
+            exp_event.kind_discriminant(),
+        )
+        .await;
+        assert_eq!(event.kind_discriminant(), exp_event.kind_discriminant());
+    }
 
-    let mut status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(LaptimerStatus::LapStarted, *status.lock().unwrap());
-    assert_eq!(Duration::zero(), laptimer.lap_time());
+    {
+        // Sector1
+        set_elapsed_time(
+            &elapsed_time_source_sender,
+            &std::time::Duration::from_millis(10120),
+        );
+        publish_position(&event_bus, &get_sector1_postion1());
+        publish_position(&event_bus, &get_sector1_postion2());
+        publish_position(&event_bus, &get_sector1_postion3());
+        publish_position(&event_bus, &get_sector1_postion4());
+        let exp_event = Event {
+            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 120000000).into()),
+        };
+        let event = wait_for_event(
+            &mut event_bus.subscribe(),
+            Duration::from_millis(100),
+            exp_event.kind_discriminant(),
+        )
+        .await;
+        assert_eq!(
+            payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            payload_ref!(exp_event.kind, EventKind::SectorFinshedEvent).unwrap()
+        );
+    }
 
-    set_elapsed_time(
-        &elapsed_time_source_sender,
-        &std::time::Duration::from_millis(10120),
-    );
-    laptimer.update_position(&get_sector1_postion1());
-    laptimer.update_position(&get_sector1_postion2());
-    laptimer.update_position(&get_sector1_postion3());
-    laptimer.update_position(&get_sector1_postion4());
+    {
+        //Sector2
+        set_elapsed_time(
+            &elapsed_time_source_sender,
+            &std::time::Duration::from_millis(20250),
+        );
+        publish_position(&event_bus, &get_sector2_postion1());
+        publish_position(&event_bus, &get_sector2_postion2());
+        publish_position(&event_bus, &get_sector2_postion3());
+        publish_position(&event_bus, &get_sector2_postion4());
+        let exp_event = Event {
+            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 130000000).into()),
+        };
+        let event = wait_for_event(
+            &mut event_bus.subscribe(),
+            Duration::from_millis(100),
+            exp_event.kind_discriminant(),
+        )
+        .await;
+        assert_eq!(
+            payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            payload_ref!(exp_event.kind, EventKind::SectorFinshedEvent).unwrap()
+        );
+    }
 
-    status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(
-        LaptimerStatus::SectorFinshed(Duration::new(10, 120000000).unwrap()),
-        *status.lock().unwrap()
-    );
+    {
+        // LapFinished
+        set_elapsed_time(
+            &elapsed_time_source_sender,
+            &std::time::Duration::from_millis(30390),
+        );
+        publish_position(&event_bus, &get_finishline_postion1());
+        publish_position(&event_bus, &get_finishline_postion2());
+        publish_position(&event_bus, &get_finishline_postion3());
+        publish_position(&event_bus, &get_finishline_postion4());
 
-    set_elapsed_time(
-        &elapsed_time_source_sender,
-        &std::time::Duration::from_millis(20250),
-    );
-    laptimer.update_position(&get_sector2_postion1());
-    laptimer.update_position(&get_sector2_postion2());
-    laptimer.update_position(&get_sector2_postion3());
-    laptimer.update_position(&get_sector2_postion4());
+        let mut receiver = event_bus.subscribe();
+        let exp_sec_finished_event = Event {
+            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 140000000).into()),
+        };
+        let sector_finished_event = wait_for_event(
+            &mut receiver,
+            std::time::Duration::from_millis(100),
+            exp_sec_finished_event.kind_discriminant(),
+        );
+        let mut receiver = event_bus.subscribe();
+        let exp_lap_finshed_event = Event {
+            kind: EventKind::LapFinishedEvent(std::time::Duration::new(30, 390000000).into()),
+        };
+        let lap_finished_event = wait_for_event(
+            &mut receiver,
+            std::time::Duration::from_millis(100),
+            exp_lap_finshed_event.kind_discriminant(),
+        );
+        let mut receiver = event_bus.subscribe();
+        let exp_lap_started_event = Event {
+            kind: EventKind::LapStartedEvent,
+        };
+        let lap_started_event = wait_for_event(
+            &mut receiver,
+            std::time::Duration::from_millis(100),
+            exp_lap_started_event.kind_discriminant(),
+        );
+        let (sector_finished_event, lap_finished_event, lap_started_event) =
+            tokio::join!(sector_finished_event, lap_finished_event, lap_started_event);
+        assert_eq!(
+            payload_ref!(sector_finished_event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            payload_ref!(exp_sec_finished_event.kind, EventKind::SectorFinshedEvent).unwrap()
+        );
+        assert_eq!(
+            payload_ref!(lap_finished_event.kind, EventKind::LapFinishedEvent).unwrap(),
+            payload_ref!(exp_lap_finshed_event.kind, EventKind::LapFinishedEvent).unwrap()
+        );
+        assert_eq!(
+            lap_started_event.kind_discriminant(),
+            exp_lap_started_event.kind_discriminant()
+        );
+    }
 
-    status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(
-        LaptimerStatus::SectorFinshed(Duration::new(10, 130000000).unwrap()),
-        *status.lock().unwrap()
-    );
-
-    set_elapsed_time(
-        &elapsed_time_source_sender,
-        &std::time::Duration::from_millis(30390),
-    );
-    laptimer.update_position(&get_finishline_postion1());
-    laptimer.update_position(&get_finishline_postion2());
-    laptimer.update_position(&get_finishline_postion3());
-    laptimer.update_position(&get_finishline_postion4());
-
-    status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(
-        LaptimerStatus::SectorFinshed(Duration::new(10, 140000000).unwrap()),
-        *status.lock().unwrap()
-    );
-    status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(
-        LaptimerStatus::LapFinished(Duration::new(30, 390000000).unwrap()),
-        *status.lock().unwrap()
-    );
-    status = receiver
-        .recv_timeout(std::time::Duration::from_millis(100))
-        .unwrap_or_else(|_| panic!("Failed to receive laptimer status within timeout 100ms"));
-    assert_eq!(LaptimerStatus::LapStarted, *status.lock().unwrap());
+    stop_module(&event_bus, &mut laptimer_handle).await;
 }
