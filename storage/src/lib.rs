@@ -2,8 +2,7 @@
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
-use async_trait::async_trait;
-use common::session::{self, Session};
+use common::session::Session;
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
     LoadSessionRequestPtr, LoadSessionResponsePtr, ModuleCtx, Response, SaveSessionRequestPtr,
@@ -11,8 +10,8 @@ use module_core::{
 };
 use std::{
     fs::exists,
-    io::{self, ErrorKind},
-    sync::{Arc, RwLock},
+    io::{self},
+    sync::RwLock,
 };
 use tokio::{
     fs::read_dir,
