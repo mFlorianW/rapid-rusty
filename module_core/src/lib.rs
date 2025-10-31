@@ -1,5 +1,6 @@
 use common::session::Session;
-use std::{io::ErrorKind, sync::Arc};
+use std::{io::ErrorKind, sync::Arc, sync::RwLock};
+
 /// Represents a high-level event in the system.
 ///
 /// Each `Event` wraps an [`EventKind`], which defines the actual type
@@ -81,7 +82,7 @@ pub type EmptyRequestPtr = Arc<Request<()>>;
 pub type StoredSessionIdsResponsePtr = Arc<Response<Arc<Vec<String>>>>;
 
 /// A thread-safe, shared pointer to a save session request.
-pub type SaveSessionRequestPtr = Arc<Request<Arc<Session>>>;
+pub type SaveSessionRequestPtr = Arc<Request<RwLock<Session>>>;
 
 /// A thread-safe, shared pointer to a save session response.
 pub type SaveSessionResponsePtr = Arc<Response<Result<String, ErrorKind>>>;
@@ -90,7 +91,13 @@ pub type SaveSessionResponsePtr = Arc<Response<Result<String, ErrorKind>>>;
 pub type LoadSessionRequestPtr = Arc<Request<String>>;
 
 /// A thread-safe, shared pointer to a load session response.
-pub type LoadSessionResponsePtr = Arc<Response<Result<Arc<Session>, ErrorKind>>>;
+pub type LoadSessionResponsePtr = Arc<Response<Result<RwLock<Session>, ErrorKind>>>;
+
+/// A thread-safe, shared pointer to a delete session request.
+pub type DeleteSessionRequestPtr = Arc<Request<String>>;
+
+/// A thread-safe, shared pointer to a delete session response.
+pub type DeleteSessionResponsePtr = Arc<Response<Result<(), ErrorKind>>>;
 
 /// Generic helper macro to extract enum payloads
 #[macro_export]
@@ -161,8 +168,17 @@ pub enum EventKind {
     LoadSessionRequestEvent(LoadSessionRequestPtr),
 
     /// Response to store a session request in the persistent storage.
-    /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<Arc<Session>, std::io::ErrorKind>`).
+    /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<RwLock<Session>, std::io::ErrorKind>`).
     LoadSessionResponseEvent(LoadSessionResponsePtr),
+
+    /// Request to store a session in the persistent storage.
+    /// This event variant carries a [`DeleteSessionRequestPtr`] with payload (`String`).
+    /// The string is the ID of the session that shall be deleted.
+    DeleteSessionRequestEvent(DeleteSessionRequestPtr),
+
+    /// Response to store a session request in the persistent storage.
+    /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<(), std::io::ErrorKind>`).
+    DeleteSessionResponseEvent(DeleteSessionResponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.

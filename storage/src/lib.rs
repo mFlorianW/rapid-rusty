@@ -3,69 +3,24 @@
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
 use async_trait::async_trait;
-use common::session::Session;
-use std::{fs::exists, io};
+use common::session::{self, Session};
+use module_core::{
+    DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
+    LoadSessionRequestPtr, LoadSessionResponsePtr, ModuleCtx, Response, SaveSessionRequestPtr,
+    SaveSessionResponsePtr, StoredSessionIdsResponsePtr,
+};
+use std::{
+    fs::exists,
+    io::{self, ErrorKind},
+    sync::{Arc, RwLock},
+};
 use tokio::{
     fs::read_dir,
     io::{AsyncReadExt, AsyncWriteExt},
 };
+use tracing::{debug, error};
 
-/// An asynchronous trait for storing and retrieving [`Session`] data.
-///
-/// This trait defines the interface for saving, loading, deleting,
-/// and listing sessions in an asynchronous context, such as file I/O
-/// typically backed by [`tokio`] runtime.
-///
-/// Implementors must ensure non-blocking operations using async APIs.
-///
-/// # Errors
-///
-/// All methods return [`std::io::Error`] if I/O fails (e.g. file missing, permission error).
-#[async_trait]
-pub trait SessionStorage: Send + Sync {
-    /// Saves a [`Session`] asynchronously.
-    ///
-    /// If a session with the same ID already exists, it will be **overwritten**.
-    ///
-    /// # Arguments
-    /// * `session` - A reference to the session to be stored.
-    ///
-    /// # Returns
-    /// * `Ok(String)` - The ID under which the session was saved.
-    /// * `Err(io::Error)` - If saving fails due to I/O or storage errors.
-    async fn save(&self, session: &Session) -> io::Result<String>;
-
-    /// Loads a [`Session`] by its unique ID.
-    ///
-    /// # Arguments
-    /// * `id` - The identifier of the session to load.
-    ///
-    /// # Returns
-    /// * `Ok(Session)` - The deserialized session.
-    /// * `Err(io::Error)` - If the session does not exist or cannot be read.
-    async fn load(&self, id: &str) -> io::Result<Session>;
-
-    /// Deletes a stored session with the specified ID.
-    ///
-    /// # Arguments
-    /// * `id` - The ID of the session to remove.
-    ///
-    /// # Returns
-    /// * `Ok(())` - If the session was successfully deleted.
-    /// * `Err(io::Error)` - If the session could not be deleted or was not found.
-    async fn delete(&self, id: &str) -> io::Result<()>;
-
-    /// Returns a list of all stored session IDs.
-    ///
-    /// This can be used to enumerate all available sessions, e.g., for displaying in a UI.
-    ///
-    /// # Returns
-    /// * `Ok(Vec<String>)` - A list of all session IDs.
-    /// * `Err(io::Error)` - If an error occurs during listing.
-    async fn ids(&self) -> io::Result<Vec<String>>;
-}
-
-/// A file system–based implementation of session storage.
+/// A file system–based implementation of a session storage.
 ///
 /// This struct is responsible for persisting session data as files in a specified root directory.
 /// Each session is stored as a separate file with the `.session` extension.
@@ -78,21 +33,25 @@ pub trait SessionStorage: Send + Sync {
 /// file corruption, or unexpected behavior.
 pub struct SessionFsStorage {
     root_dir: String,
+    module_ctx: ModuleCtx,
 }
 
 impl SessionFsStorage {
-    pub fn new(root_dir: &str) -> Self {
+    pub fn new(root_dir: &str, ctx: ModuleCtx) -> Self {
         SessionFsStorage {
             root_dir: root_dir.to_string(),
+            module_ctx: ctx,
         }
     }
-}
 
-#[async_trait]
-impl SessionStorage for SessionFsStorage {
-    async fn save(&self, session: &Session) -> io::Result<String> {
-        let json_session = Session::to_json(session)?;
-        let id = SessionFsStorage::get_id(session);
+    async fn save(&self, session: &RwLock<Session>) -> std::io::Result<String> {
+        let json_session;
+        let id;
+        {
+            let session = session.read().unwrap_or_else(|e| e.into_inner());
+            json_session = Session::to_json(&session)?; // TODO! this sould be done async
+            id = SessionFsStorage::get_id(&session);
+        }
         let file_path = self.get_session_file_path(&id);
         let mut file = tokio::fs::File::create(&file_path).await?;
         file.write_all(json_session.as_bytes()).await?;
@@ -128,20 +87,124 @@ impl SessionStorage for SessionFsStorage {
                 }
                 if let Some(extension) = entry.path().extension()
                     && extension == "session"
+                    && let Some(id) = entry.path().file_stem()
                 {
-                    if let Some(id) = entry.path().file_stem() {
-                        result.push(id.to_string_lossy().to_string());
-                    }
+                    debug!(
+                        "Found session with id {} in folder {}",
+                        id.to_string_lossy().to_string(),
+                        self.root_dir
+                    );
+                    result.push(id.to_string_lossy().to_string());
                 }
             }
             result.sort();
             return Ok(result);
         }
+        error!("Not session folder found in {}", self.root_dir);
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
-}
 
-impl SessionFsStorage {
+    async fn handle_load_stored_ids_request(&self, req: &EmptyRequestPtr) {
+        let ids = self.ids().await;
+        let data = match ids {
+            Ok(ids) => {
+                debug!("Load session ids {:?} from {}", ids, self.root_dir);
+                std::sync::Arc::new(ids)
+            }
+            Err(_) => std::sync::Arc::new(vec![]),
+        };
+        let resp = StoredSessionIdsResponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data,
+        });
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::LoadStoredSessionIdsResponseEvent(resp),
+        });
+    }
+
+    async fn handle_save_request(&self, req: &SaveSessionRequestPtr) {
+        let result = self.save(&req.data).await;
+        let data = match result {
+            Ok(id) => {
+                debug!("Stored session with id {} in {}", id, self.root_dir);
+                Ok(id)
+            }
+            Err(e) => {
+                debug!(
+                    "Failed to store session with id {} in {}. Error:{}",
+                    req.data.read().unwrap_or_else(|e| e.into_inner()).id,
+                    self.root_dir,
+                    e
+                );
+                Err(e.kind())
+            }
+        };
+
+        let resp = SaveSessionResponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data,
+        });
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::SaveSessionResponseEvent(resp),
+        });
+    }
+
+    async fn handle_load_request(&self, req: &LoadSessionRequestPtr) {
+        let id = &req.data;
+        let load_result = self.load(id).await;
+        let data = match load_result {
+            Ok(session) => {
+                debug!("Delete session with id {} in {}", id, self.root_dir);
+                Ok(RwLock::new(session))
+            }
+            Err(e) => {
+                debug!(
+                    "Failed to delete session with id {} in {}. Error: {}",
+                    id, self.root_dir, e
+                );
+                Err(e.kind())
+            }
+        };
+
+        let resp = LoadSessionResponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data,
+        });
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::LoadSessionResponseEvent(resp),
+        });
+    }
+
+    async fn handle_delete_request(&self, req: &DeleteSessionRequestPtr) {
+        let id = &req.data;
+        let delete_result = self.delete(id).await;
+        let data = match delete_result {
+            Ok(_) => {
+                debug!("Deleted session with id {} in {}", id, self.root_dir);
+                Ok(())
+            }
+            Err(e) => {
+                debug!(
+                    "Failed to delete session with id {} in {}",
+                    id, self.root_dir
+                );
+                Err(e.kind())
+            }
+        };
+
+        let resp = DeleteSessionResponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data,
+        });
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::DeleteSessionResponseEvent(resp),
+        });
+    }
+
     /// Returns the unique identifier of the session.
     ///
     /// This method consumes the `Session` instance and returns its `id` as a `String`.
@@ -183,4 +246,40 @@ impl SessionFsStorage {
     }
 }
 
+#[async_trait::async_trait]
+impl module_core::Module for SessionFsStorage {
+    async fn run(&mut self) -> Result<(), ()> {
+        let mut run = true;
+        while run {
+            tokio::select! {
+                event = self.module_ctx.receiver.recv() => {
+                    match event {
+                        Ok(event) => {
+                            match event.kind {
+                                EventKind::QuitEvent => run = false,
+                                EventKind::LoadStoredSessionIdsRequestEvent(request) => {
+                                    self.handle_load_stored_ids_request(&request).await;
+                                },
+                                EventKind::SaveSessionRequestEvent(request) => {
+                                    self.handle_save_request(&request).await;
+                                }
+                                EventKind::LoadSessionRequestEvent(request) => {
+                                    self.handle_load_request(&request).await;
+                                }
+                                EventKind::DeleteSessionRequestEvent(request) => {
+                                    self.handle_delete_request(&request).await;
+                                }
+                                _ => ()
+                            }
+                        }
+                        Err(e) => println!("Error: {}", e),
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 pub mod tests;
