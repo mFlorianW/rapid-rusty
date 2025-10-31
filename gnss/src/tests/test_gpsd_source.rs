@@ -3,10 +3,11 @@ use chrono::DateTime;
 use common::position::{GnssInformation, GnssPosition, GnssStatus};
 use core::panic;
 use module_core::{
+    Event, EventBus, EventKind, GnssInformationPtr, GnssPositionPtr, Module, ModuleCtx,
+    payload_ref,
     test_helper::{stop_module, wait_for_event},
-    Event, EventBus, EventKind, Module, ModuleCtx,
 };
-use std::{io::Error, str::FromStr};
+use std::{io::Error, str::FromStr, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -105,50 +106,54 @@ const TPV_MSG: &str = " \
 async fn notify_gnss_position() {
     let event_bus = EventBus::new();
     let datetime = DateTime::<chrono::Utc>::from_str("2005-06-08T10:34:48.283Z").unwrap();
-    let expected_pos = GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive());
     let (mut source, mut server) = test_setup("127.0.0.1:35501", event_bus.context()).await;
     server
         .send(TPV_MSG.as_bytes())
         .await
         .expect("Failed to send TPV msg");
-    assert!(wait_for_event(
+
+    let expected_pos = GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive());
+    let exp_event = Event {
+        kind: EventKind::GnssPositionEvent(GnssPositionPtr::new(expected_pos)),
+    };
+    let event = wait_for_event(
         &mut event_bus.subscribe(),
-        std::time::Duration::from_millis(TIMEOUT_MS.into()),
-        |e: &Event| -> bool {
-            if let EventKind::GnssPositionEvent(ref position) = e.kind
-                && **position == expected_pos
-            {
-                return true;
-            }
-            false
-        },
+        Duration::from_millis(TIMEOUT_MS.into()),
+        exp_event.kind_discriminant(),
     )
-    .await);
+    .await;
+    assert_eq!(
+        payload_ref!(event.kind, EventKind::GnssPositionEvent).unwrap(),
+        payload_ref!(exp_event.kind, EventKind::GnssPositionEvent).unwrap()
+    );
+
     stop_module(&event_bus, &mut source).await;
 }
 
 #[tokio::test]
 async fn notify_gnss_information_on_fix_change() {
     let event_bus = EventBus::default();
-    let expected_information = GnssInformation::new(&GnssStatus::Fix3d, 0);
     let (mut source, mut server) = test_setup("127.0.0.1:35502", event_bus.context()).await;
     server
         .send(TPV_MSG.as_bytes())
         .await
         .expect("Failed to send TPV msg");
-    assert!(wait_for_event(
+
+    let expected_information = GnssInformation::new(&GnssStatus::Fix3d, 0);
+    let exp_event = Event {
+        kind: EventKind::GnssInformationEvent(GnssInformationPtr::new(expected_information)),
+    };
+    let event = wait_for_event(
         &mut event_bus.subscribe(),
-        std::time::Duration::from_millis(TIMEOUT_MS.into()),
-        |e: &Event| -> bool {
-            if let EventKind::GnssInformationEvent(ref information) = e.kind
-                && **information == expected_information
-            {
-                return true;
-            }
-            false
-        },
+        Duration::from_millis(TIMEOUT_MS.into()),
+        exp_event.kind_discriminant(),
     )
-    .await);
+    .await;
+    assert_eq!(
+        payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
+        payload_ref!(exp_event.kind, EventKind::GnssInformationEvent).unwrap()
+    );
+
     stop_module(&event_bus, &mut source).await;
 }
 
@@ -174,24 +179,26 @@ const SKY_MSG: &str = " \
 #[tokio::test]
 async fn notify_gnss_information_on_sky_change() {
     let event_bus = EventBus::default();
-    let expected_information = GnssInformation::new(&GnssStatus::Unknown, 5);
     let (mut source, mut server) = test_setup("127.0.0.1:35503", event_bus.context()).await;
     server
         .send(SKY_MSG.as_bytes())
         .await
         .expect("Failed to send SKY msg");
-    assert!(wait_for_event(
+
+    let expected_information = GnssInformation::new(&GnssStatus::Unknown, 5);
+    let exp_event = Event {
+        kind: EventKind::GnssInformationEvent(GnssInformationPtr::new(expected_information)),
+    };
+    let event = wait_for_event(
         &mut event_bus.subscribe(),
-        std::time::Duration::from_millis(TIMEOUT_MS.into()),
-        |e: &Event| -> bool {
-            if let EventKind::GnssInformationEvent(ref information) = e.kind
-                && **information == expected_information
-            {
-                return true;
-            }
-            false
-        },
+        Duration::from_millis(TIMEOUT_MS.into()),
+        exp_event.kind_discriminant(),
     )
-    .await);
+    .await;
+    assert_eq!(
+        payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
+        payload_ref!(exp_event.kind, EventKind::GnssInformationEvent).unwrap()
+    );
+
     stop_module(&event_bus, &mut source).await;
 }

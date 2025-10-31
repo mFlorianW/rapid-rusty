@@ -1,4 +1,6 @@
 use crate::{Event, EventBus, EventKind};
+use core::panic;
+use std::mem::Discriminant;
 use tokio::time::timeout;
 
 /// Sends a quit signal to a running module and waits for it to stop gracefully.
@@ -40,36 +42,49 @@ pub async fn stop_module(
         .unwrap();
 }
 
-/// Waits for an event from a broadcast receiver that satisfies a given predicate, with a timeout.
+/// Waits asynchronously for a specific type of [`Event`] to be received on a
+/// [`tokio::sync::broadcast::Receiver`] within a given duration.
 ///
-/// This function repeatedly checks the receiver for a matching event, polling in 1/10th
-/// intervals of the total duration. It returns `true` as soon as an event satisfying the
-/// predicate is received, or `false` if the timeout expires without a matching event.
+/// This function repeatedly polls the provided broadcast receiver for incoming
+/// [`Event`] messages, checking if any match the expected [`EventKind`]
+/// discriminant. The total waiting time is divided into small polling steps
+/// (each one-tenth of the total duration), allowing intermediate timeouts so the
+/// function remains responsive.
 ///
-/// # Parameters
-/// - `rx`: A mutable reference to a `tokio::sync::broadcast::Receiver<Event>` to receive events from.
-/// - `duration`: The total maximum duration to wait for a matching event.
-/// - `predicate`: A closure that takes a reference to an `Event` and returns `true` if it matches.
+/// If a matching event is received before the timeout expires, it is returned.
+/// Otherwise, the function panics after the duration elapses.
+///
+/// # Arguments
+///
+/// * `rx` — A mutable reference to a [`tokio::sync::broadcast::Receiver<Event>`]
+///   from which events are received.
+/// * `duration` — The maximum amount of time to wait for the expected event.
+/// * `exp_event` — The expected event type, represented as a
+///   [`std::mem::Discriminant<EventKind>`]. Only the variant type is compared;
+///   payload data is ignored.
+///
+/// # Panics
+///
+/// This function panics if no matching event is received within the specified
+/// `duration`.
 ///
 /// # Returns
-/// - `true` if an event satisfying the predicate was received within the timeout.
-/// - `false` if no matching event was received before the timeout expired.
-pub async fn wait_for_event<F>(
+///
+/// Returns the first [`Event`] whose [`EventKind`] discriminant matches
+/// `exp_event`.
+pub async fn wait_for_event(
     rx: &mut tokio::sync::broadcast::Receiver<Event>,
     duration: std::time::Duration,
-    mut predicate: F,
-) -> bool
-where
-    F: FnMut(&Event) -> bool,
-{
+    exp_event: Discriminant<EventKind>,
+) -> Event {
     let steps = duration.as_millis() / 10;
     let step_duration = duration / 10;
     for _ in 0..steps {
         if let Ok(Ok(event)) = timeout(step_duration, rx.recv()).await
-            && predicate(&event)
+            && event.kind_discriminant() == exp_event
         {
-            return true;
+            return event;
         }
     }
-    false
+    panic!("Failed to receive event of type {:?}", exp_event);
 }

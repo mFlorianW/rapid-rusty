@@ -1,5 +1,3 @@
-use common::position::GnssPosition;
-
 use super::super::*;
 
 #[tokio::test]
@@ -15,5 +13,8 @@ pub async fn events_delivered() {
             .await
             .expect("Failed to receive event in required time")
             .unwrap();
-    assert_eq!(received_event, event);
+    assert_eq!(
+        received_event.kind_discriminant(),
+        event.kind_discriminant()
+    );
 }

@@ -1,3 +1,5 @@
+use common::session::Session;
+use std::{io::ErrorKind, sync::Arc};
 /// Represents a high-level event in the system.
 ///
 /// Each `Event` wraps an [`EventKind`], which defines the actual type
@@ -5,10 +7,16 @@
 ///
 /// This structure is designed to be passed through an [`EventBus`]
 /// between asynchronous modules.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Event {
     /// The inner event type and associated data.
     pub kind: EventKind,
+}
+
+impl Event {
+    pub fn kind_discriminant(&self) -> std::mem::Discriminant<EventKind> {
+        std::mem::discriminant(&self.kind)
+    }
 }
 
 /// Represents a generic request message.
@@ -23,8 +31,8 @@ pub struct Event {
 ///
 /// # Type Parameters
 /// - `T`: The type of the request payload.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Request<T> {
+#[derive(Debug, Clone)]
+pub struct Request<T = ()> {
     pub id: u64,
     pub sender_addr: u64,
     pub data: T,
@@ -49,56 +57,56 @@ pub struct Response<T = ()> {
     pub data: T,
 }
 
-/// Compares two [`Response`] values containing [`Arc`]-wrapped [`RwLock`] data.
-///
-/// This implementation considers two responses equal if:
-/// - Their [`id`] fields are identical.
-/// - The contents of their inner values (protected by the [`RwLock`]) are equal,
-///   as determined by the [`PartialEq`] implementation of the inner type `T`.
-///
-/// Lock poisoning is handled gracefully:
-/// if either [`RwLock`] is poisoned (due to a panic while it was previously held
-/// for writing), the implementation recovers the underlying data using
-/// [`PoisonError::into_inner()`] and continues the comparison instead of panicking.
-///
-/// # Type Parameters
-/// - `T`: The type of the data stored within the [`RwLock`].
-///   Must implement [`PartialEq`] to support equality comparison.
-///
-/// # Thread Safety
-/// Only shared (read) access is acquired from both locks during comparison,
-/// ensuring that the operation does not block other readers and does not modify data.
-impl<T> PartialEq for Response<std::sync::Arc<std::sync::RwLock<T>>>
-where
-    T: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        if self.id != other.id {
-            return false;
-        }
-        let self_data = self.data.read().unwrap_or_else(|e| e.into_inner());
-        let other_data = other.data.read().unwrap_or_else(|e| e.into_inner());
-        *self_data == *other_data
-    }
-}
-
 /// A thread-safe, reference-counted pointer to a [`GnssPosition`].
 ///
 /// This type alias wraps a [`GnssPosition`] inside an [`Arc`], allowing
 /// multiple parts of the program (or multiple modules) to share ownership
 /// of the same GNSS position data without copying it.
-pub type GnssPositionPtr = std::sync::Arc<common::position::GnssPosition>;
+pub type GnssPositionPtr = Arc<common::position::GnssPosition>;
 
 /// A thread-safe shared reference-counted pointer to a [`GnssInformation`].
 ///
 /// This type alias wraps a [`GnssInformation`] instance in an [`Arc`],
 /// multiple parts of the program (or multiple modules) to share ownership
 /// of the same GNSS information data without copying it.
-pub type GnssInformationPtr = std::sync::Arc<common::position::GnssInformation>;
+pub type GnssInformationPtr = Arc<common::position::GnssInformation>;
+
+/// A thread-safe, shared pointer to an std::time::duration.
+pub type DurationPtr = Arc<std::time::Duration>;
+
+/// A thread-safe, shared pointer to an empty request.
+pub type EmptyRequestPtr = Arc<Request<()>>;
+
+/// A thread-safe, shared response containing stored session identifiers.
+pub type StoredSessionIdsResponsePtr = Arc<Response<Arc<Vec<String>>>>;
+
+/// A thread-safe, shared pointer to a save session request.
+pub type SaveSessionRequestPtr = Arc<Request<Arc<Session>>>;
+
+/// A thread-safe, shared pointer to a save session response.
+pub type SaveSessionResponsePtr = Arc<Response<Result<String, ErrorKind>>>;
+
+/// A thread-safe, shared pointer to a load session request.
+pub type LoadSessionRequestPtr = Arc<Request<String>>;
+
+/// A thread-safe, shared pointer to a load session response.
+pub type LoadSessionResponsePtr = Arc<Response<Result<Arc<Session>, ErrorKind>>>;
+
+/// Generic helper macro to extract enum payloads
+#[macro_export]
+macro_rules! payload_ref {
+    ($enum_val:expr, $pattern:path) => {
+        if let $pattern(ref payload) = $enum_val {
+            Some(payload)
+        } else {
+            None
+        }
+    };
+}
 
 /// Enumerates the different kinds of events that can be emitted
 /// and transmitted via the [`EventBus`].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum EventKind {
     /// Indicates that a module shall terminate.
     QuitEvent,
@@ -120,15 +128,41 @@ pub enum EventKind {
 
     /// Indicates that a lap has finished.
     /// This event carries a [`std:time::Duration`] structure
-    LapFinishedEvent(std::time::Duration),
+    LapFinishedEvent(DurationPtr),
 
     /// Indicates that a sector has been completed.
     /// This event carries a [`std:time::Duration`] structure
-    SectorFinshedEvent(std::time::Duration),
+    SectorFinshedEvent(DurationPtr),
 
     /// Represents the current laptime (may be used for reporting purposes).
     /// This event carries a [`std:time::Duration`] structure.
-    CurrentLaptimeEvent(std::time::Duration),
+    CurrentLaptimeEvent(DurationPtr),
+
+    /// Requests the list of all stored session identifiers.
+    /// This event variant carries a [`EmptyRequestPtr`] with no payload (`()`),
+    /// signaling that the sender is asking for all session IDs currently stored or available in persistent storage.
+    LoadStoredSessionIdsRequestEvent(EmptyRequestPtr),
+
+    /// Returns the list of stored session identifiers in response to a [`RequestStoredSessionIdsEvent`].
+    LoadStoredSessionIdsResponseEvent(StoredSessionIdsResponsePtr),
+
+    /// Request to store a session in the persistent storage.
+    /// This event variant carries a [`SaveSessionRequestPtr`] with payload (`Arc<RwLock<Session>`).
+    SaveSessionRequestEvent(SaveSessionRequestPtr),
+
+    /// Response to store a session request in the persistent storage.
+    /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<String, std::io::ErrorKind>`).
+    /// The string is the ID under which the session was stored.
+    SaveSessionResponseEvent(SaveSessionResponsePtr),
+
+    /// Request to store a session in the persistent storage.
+    /// This event variant carries a [`LoadSessionRequestPtr`] with payload (`String`).
+    /// The string is the ID of the session that shall be loaded.
+    LoadSessionRequestEvent(LoadSessionRequestPtr),
+
+    /// Response to store a session request in the persistent storage.
+    /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<Arc<Session>, std::io::ErrorKind>`).
+    LoadSessionResponseEvent(LoadSessionResponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.

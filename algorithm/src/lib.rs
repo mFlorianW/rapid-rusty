@@ -191,7 +191,9 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
             if self.is_point_passed(&finish_point) {
                 self.handle_sector_finsihed();
                 self.notify_consumer(Event {
-                    kind: EventKind::LapFinishedEvent(self.elapsed_time_source.elapsed_time()),
+                    kind: EventKind::LapFinishedEvent(
+                        self.elapsed_time_source.elapsed_time().into(),
+                    ),
                 });
                 if !self.track.sectors.is_empty() {
                     // Start a new lap immediately
@@ -214,7 +216,7 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     fn handle_sector_finsihed(&mut self) {
         let duration = self.elapsed_time_source.elapsed_time() - self.sector_start;
         self.notify_consumer(Event {
-            kind: EventKind::SectorFinshedEvent(duration),
+            kind: EventKind::SectorFinshedEvent(duration.into()),
         });
         self.sector_start = self.elapsed_time_source.elapsed_time();
     }
