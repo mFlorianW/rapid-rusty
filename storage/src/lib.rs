@@ -5,12 +5,13 @@
 use common::session::Session;
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
-    LoadSessionRequestPtr, LoadSessionResponsePtr, ModuleCtx, Response, SaveSessionRequestPtr,
-    SaveSessionResponsePtr, StoredSessionIdsResponsePtr,
+    LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr, ModuleCtx,
+    Response, SaveSessionRequestPtr, SaveSessionResponsePtr, StoredSessionIdsResponsePtr,
 };
 use std::{
     fs::{DirBuilder, exists},
     io::{self},
+    path::PathBuf,
     sync::RwLock,
 };
 use tokio::{
@@ -32,6 +33,7 @@ use tracing::{debug, error};
 /// file corruption, or unexpected behavior.
 pub struct FilesSystemStorage {
     session_root_dir: String,
+    track_root_dir: String,
     module_ctx: ModuleCtx,
 }
 
@@ -39,6 +41,8 @@ impl FilesSystemStorage {
     pub fn new(root_dir: String, ctx: ModuleCtx) -> Self {
         let mut session_file_path = std::path::PathBuf::from(&root_dir);
         session_file_path.push("session");
+        let mut track_file_path = PathBuf::from(&root_dir);
+        track_file_path.push("track");
         if let Err(e) = DirBuilder::new().recursive(true).create(&session_file_path) {
             error!(
                 "Failed to create session dir folder {}. Error: {}",
@@ -48,6 +52,7 @@ impl FilesSystemStorage {
         }
         FilesSystemStorage {
             session_root_dir: session_file_path.to_string_lossy().to_string(),
+            track_root_dir: track_file_path.to_string_lossy().to_string(),
             module_ctx: ctx,
         }
     }
@@ -84,23 +89,23 @@ impl FilesSystemStorage {
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 
-    async fn ids(&self) -> io::Result<Vec<String>> {
-        if exists(&self.session_root_dir).is_ok() {
-            let mut dirs = read_dir(&self.session_root_dir).await?;
+    async fn ids(&self, dir: &str, extension: &str) -> io::Result<Vec<String>> {
+        if exists(dir).is_ok() {
+            let mut dirs = read_dir(dir).await?;
             let mut result = vec![];
             while let Some(entry) = dirs.next_entry().await? {
                 let metadata = entry.metadata().await?;
                 if !metadata.file_type().is_file() {
                     continue;
                 }
-                if let Some(extension) = entry.path().extension()
-                    && extension == "session"
+                if let Some(ext) = entry.path().extension()
+                    && ext == extension
                     && let Some(id) = entry.path().file_stem()
                 {
                     debug!(
-                        "Found session with id {} in folder {}",
+                        "Found file with id {} in folder {}",
                         id.to_string_lossy().to_string(),
-                        self.session_root_dir
+                        dir
                     );
                     result.push(id.to_string_lossy().to_string());
                 }
@@ -113,7 +118,7 @@ impl FilesSystemStorage {
     }
 
     async fn handle_load_stored_ids_request(&self, req: &EmptyRequestPtr) {
-        let ids = self.ids().await;
+        let ids = self.ids(&self.session_root_dir, "session").await;
         let data = match ids {
             Ok(ids) => {
                 debug!("Load session ids {:?} from {}", ids, self.session_root_dir);
@@ -216,6 +221,26 @@ impl FilesSystemStorage {
         });
     }
 
+    async fn handle_load_stored_track_ids_request(&self, req: &EmptyRequestPtr) {
+        let ids = self.ids(&self.track_root_dir, "track").await;
+        let data = match ids {
+            Ok(ids) => {
+                debug!("Load track ids {:?} from {}", ids, self.track_root_dir);
+                ids
+            }
+            Err(_) => vec![],
+        };
+
+        let resp = LoadStoredTrackIdsResponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data,
+        });
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::LoadStoredTrackIdsResponseEvent(resp),
+        });
+    }
+
     /// Returns the unique identifier of the session.
     ///
     /// This method consumes the `Session` instance and returns its `id` as a `String`.
@@ -273,12 +298,15 @@ impl module_core::Module for FilesSystemStorage {
                                 },
                                 EventKind::SaveSessionRequestEvent(request) => {
                                     self.handle_save_request(&request).await;
-                                }
+                                },
                                 EventKind::LoadSessionRequestEvent(request) => {
                                     self.handle_load_request(&request).await;
-                                }
+                                },
                                 EventKind::DeleteSessionRequestEvent(request) => {
                                     self.handle_delete_request(&request).await;
+                                },
+                                EventKind::LoadStoredTrackIdsRequest(request) => {
+                                    self.handle_load_stored_track_ids_request(&request).await;
                                 }
                                 _ => ()
                             }

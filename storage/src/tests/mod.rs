@@ -25,4 +25,5 @@ fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Resul
     })
 }
 
-pub mod test_sessionfs_storage;
+mod test_sessionfs_storage;
+mod test_trackfs_storage;

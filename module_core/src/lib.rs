@@ -99,6 +99,9 @@ pub type DeleteSessionRequestPtr = Arc<Request<String>>;
 /// A thread-safe, shared pointer to a delete session response.
 pub type DeleteSessionResponsePtr = Arc<Response<Result<(), ErrorKind>>>;
 
+/// A thread-safe, shared pointer to a load stored track ids request.
+pub type LoadStoredTrackIdsResponsePtr = Arc<Response<Vec<String>>>;
+
 /// Generic helper macro to extract enum payloads
 #[macro_export]
 macro_rules! payload_ref {
@@ -179,6 +182,15 @@ pub enum EventKind {
     /// Response to store a session request in the persistent storage.
     /// This event variant carries a [`SaveSessionResponsePtr`] with payload (`Result<(), std::io::ErrorKind>`).
     DeleteSessionResponseEvent(DeleteSessionResponsePtr),
+
+    /// Request to load all stored track ids in the persistent storage.
+    /// This event variant carries a [`EmptyRequestPtr`].
+    LoadStoredTrackIdsRequest(EmptyRequestPtr),
+
+    /// Reponse to load all stored track ids in the persistent storage.
+    /// This event variant carries a [`Vec<String>`].
+    /// The vector contains all track ids found in the persistent storage.
+    LoadStoredTrackIdsResponseEvent(LoadStoredTrackIdsResponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.
