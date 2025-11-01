@@ -2,16 +2,17 @@
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
-use common::session::Session;
+use common::{session::Session, test_helper::track, track::Track};
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
-    LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr, ModuleCtx,
-    Response, SaveSessionRequestPtr, SaveSessionResponsePtr, StoredSessionIdsResponsePtr,
+    LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr,
+    LoadStoredTracksReponsePtr, ModuleCtx, Response, SaveSessionRequestPtr, SaveSessionResponsePtr,
+    StoredSessionIdsResponsePtr,
 };
 use std::{
     fs::{DirBuilder, exists},
     io::{self},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::RwLock,
 };
 use tokio::{
@@ -24,6 +25,7 @@ use tracing::{debug, error};
 ///
 /// This struct is responsible for persisting session and track data as files in a specified root directory.
 /// Each session is stored as a separate file with the `.session` extension in the folder session.
+/// Each session is track as a separate file with the `.track` extension in the folder track.
 ///
 /// ## Important
 ///
@@ -72,12 +74,11 @@ impl FilesSystemStorage {
         Ok(id)
     }
 
-    async fn load(&self, id: &str) -> io::Result<Session> {
-        let file_path = self.get_session_file_path(id);
+    async fn load_file(&self, file_path: &str) -> io::Result<String> {
         let mut file = tokio::fs::File::open(file_path).await?;
-        let mut json_session = String::default();
-        file.read_to_string(&mut json_session).await?;
-        Session::from_json(&json_session).map_err(|_| io::Error::from(io::ErrorKind::Unsupported))
+        let mut json = String::default();
+        file.read_to_string(&mut json).await?;
+        Ok(json)
     }
 
     async fn delete(&self, id: &str) -> io::Result<()> {
@@ -165,17 +166,20 @@ impl FilesSystemStorage {
     }
 
     async fn handle_load_request(&self, req: &LoadSessionRequestPtr) {
-        let id = &req.data;
-        let load_result = self.load(id).await;
-        let data = match load_result {
+        let file_path = self.file_path(&req.data, Path::new(&self.session_root_dir), "session");
+        let data = match self
+            .load_file(&file_path)
+            .await
+            .and_then(|json| Session::from_json(&json).map_err(|e| e.into()))
+        {
             Ok(session) => {
-                debug!("Delete session with id {} in {}", id, self.session_root_dir);
+                debug!("Load session with filename {}", file_path);
                 Ok(RwLock::new(session))
             }
             Err(e) => {
                 debug!(
-                    "Failed to delete session with id {} in {}. Error: {}",
-                    id, self.session_root_dir, e
+                    "Failed to load session with filename {}. Error: {}",
+                    file_path, e
                 );
                 Err(e.kind())
             }
@@ -241,6 +245,39 @@ impl FilesSystemStorage {
         });
     }
 
+    async fn handle_all_load_stored_track_request(&self, req: &EmptyRequestPtr) {
+        let mut tracks: Vec<Track> = vec![];
+        if let Ok(ids) = self.ids(&self.track_root_dir, "track").await {
+            for id in ids.iter() {
+                let file_path = self.file_path(id, Path::new(&self.track_root_dir), "track");
+                match self
+                    .load_file(&file_path)
+                    .await
+                    .and_then(|json| Track::from_json(&json).map_err(|e| e.into()))
+                {
+                    Ok(track) => {
+                        debug!("Load track from \"{file_path}\".");
+                        tracks.push(track);
+                    }
+                    Err(e) => {
+                        error!("Failed to load track \"{file_path}\". Error: {e}");
+                        continue;
+                    }
+                }
+            }
+        }
+
+        let resp = LoadStoredTracksReponsePtr::new(Response {
+            id: req.id,
+            receiver_addr: req.sender_addr,
+            data: tracks,
+        });
+
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::LoadAllStoredTracksResponseEvent(resp),
+        });
+    }
+
     /// Returns the unique identifier of the session.
     ///
     /// This method consumes the `Session` instance and returns its `id` as a `String`.
@@ -280,6 +317,13 @@ impl FilesSystemStorage {
         file_path.set_extension("session");
         file_path.to_string_lossy().to_string()
     }
+
+    fn file_path(&self, id: &str, path: &Path, extension: &str) -> String {
+        let mut file_path = std::path::PathBuf::from(path);
+        file_path.push(id);
+        file_path.set_extension(extension);
+        file_path.to_string_lossy().to_string()
+    }
 }
 
 #[async_trait::async_trait]
@@ -307,6 +351,9 @@ impl module_core::Module for FilesSystemStorage {
                                 },
                                 EventKind::LoadStoredTrackIdsRequest(request) => {
                                     self.handle_load_stored_track_ids_request(&request).await;
+                                }
+                                EventKind::LoadAllStoredTracksRequestEvent(request) => {
+                                    self.handle_all_load_stored_track_request(&request).await;
                                 }
                                 _ => ()
                             }

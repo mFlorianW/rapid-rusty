@@ -1,5 +1,6 @@
 use super::*;
 use crate::tests::create_storage_module;
+use common::track::Track;
 use module_core::{
     Request, payload_ref,
     test_helper::{stop_module, wait_for_event},
@@ -95,6 +96,51 @@ pub async fn load_stored_track_ids() {
     let mut ids = payload.data.clone();
     ids.sort();
     assert_eq!(exp_ids, ids);
+
+    stop_module(&eb, &mut storage).await;
+}
+
+#[tokio::test]
+pub async fn read_stored_session_ids() {
+    let eb = EventBus::default();
+    let test_folder_name = "load_stored_all_track";
+    init_none_empty_test(test_folder_name);
+    let tracks = vec![
+        Track::from_json(include_str!("Most.json")).unwrap(),
+        Track::from_json(include_str!("Oschersleben.json")).unwrap(),
+    ];
+    let mut storage = create_storage_module(test_folder_name, &eb);
+
+    eb.publish(&Event {
+        kind: EventKind::LoadAllStoredTracksRequestEvent(
+            Request {
+                id: 10,
+                sender_addr: 22,
+                data: (),
+            }
+            .into(),
+        ),
+    });
+    let exp_event = EventKind::LoadAllStoredTracksResponseEvent(
+        Response {
+            id: 10,
+            receiver_addr: 22,
+            data: tracks.clone(),
+        }
+        .into(),
+    );
+    let event = wait_for_event(
+        &mut eb.subscribe(),
+        Duration::from_millis(100),
+        discriminant(&exp_event),
+    )
+    .await;
+
+    let exp_payload = payload_ref!(exp_event, EventKind::LoadAllStoredTracksResponseEvent).unwrap();
+    let payload = payload_ref!(event.kind, EventKind::LoadAllStoredTracksResponseEvent).unwrap();
+    assert_eq!(exp_payload.id, payload.id);
+    assert_eq!(exp_payload.receiver_addr, payload.receiver_addr);
+    assert_eq!(exp_payload.data, payload.data);
 
     stop_module(&eb, &mut storage).await;
 }

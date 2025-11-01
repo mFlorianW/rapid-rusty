@@ -1,4 +1,4 @@
-use common::session::Session;
+use common::{session::Session, track::Track};
 use std::{io::ErrorKind, sync::Arc, sync::RwLock};
 
 /// Represents a high-level event in the system.
@@ -102,6 +102,9 @@ pub type DeleteSessionResponsePtr = Arc<Response<Result<(), ErrorKind>>>;
 /// A thread-safe, shared pointer to a load stored track ids request.
 pub type LoadStoredTrackIdsResponsePtr = Arc<Response<Vec<String>>>;
 
+/// A thread-safe shared pointer to a load all stored tracks request.
+pub type LoadStoredTracksReponsePtr = Arc<Response<Vec<Track>>>;
+
 /// Generic helper macro to extract enum payloads
 #[macro_export]
 macro_rules! payload_ref {
@@ -191,6 +194,15 @@ pub enum EventKind {
     /// This event variant carries a [`Vec<String>`].
     /// The vector contains all track ids found in the persistent storage.
     LoadStoredTrackIdsResponseEvent(LoadStoredTrackIdsResponsePtr),
+
+    /// Request to load all stored tracks in the persistent storage.
+    /// This event variant carries a [`EmptyRequestPtr`].
+    LoadAllStoredTracksRequestEvent(EmptyRequestPtr),
+
+    /// Reponse to load all stored track ids in the persistent storage.
+    /// This event variant carries a [`Vec<String>`].
+    /// The vector contains all tracks found in the persistent storage.
+    LoadAllStoredTracksResponseEvent(LoadStoredTracksReponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.
