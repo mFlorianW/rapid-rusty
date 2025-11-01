@@ -1,31 +1,18 @@
 use super::super::*;
+use crate::tests::{create_storage_module, get_path, setup_empty_test_folder};
 use common::test_helper::session::get_session;
 use core::panic;
 use module_core::{
-    EmptyRequestPtr, Event, EventBus, LoadSessionRequestPtr, LoadSessionResponsePtr, Module,
-    Request, Response, SaveSessionRequestPtr, SaveSessionResponsePtr, payload_ref,
+    EmptyRequestPtr, Event, EventBus, Request, Response, SaveSessionRequestPtr,
+    SaveSessionResponsePtr, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
-use std::{mem::discriminant, sync::Arc};
+use std::{fs::create_dir, mem::discriminant, sync::Arc};
 use std::{os::unix::fs::MetadataExt, time::Duration};
-use tokio::task::JoinHandle;
-
-fn get_path(folder_name: &str) -> String {
-    format!("/tmp/rapid-rusty/{folder_name}")
-}
-
-fn setup_empty_test_folder(folder_name: &str) {
-    let path = get_path(folder_name);
-    if let Ok(true) = std::fs::exists(&path) {
-        std::fs::remove_dir_all(&path)
-            .unwrap_or_else(|_| panic!("Failed to cleanup test dir {path}"));
-    }
-    std::fs::create_dir_all(&path)
-        .unwrap_or_else(|err| panic!("Failed to create test dir for {path}. Reason: {err}"));
-}
 
 fn create_empty_session(id: &str, folder_name: &str) {
-    let file = format!("{}/{id}.session", get_path(folder_name));
+    let file = format!("{}/session/{id}.session", get_path(folder_name));
+    let _ = create_dir(format!("{}/session", get_path(folder_name)));
     if let Ok(true) = std::fs::exists(&file) {
         std::fs::remove_file(&file)
             .unwrap_or_else(|err| panic!("Failed to remove file {file}. Reason: {err}"));
@@ -46,7 +33,7 @@ fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
 }
 
 fn get_session_ids(folder_name: &str) -> Vec<String> {
-    let path = get_path(folder_name);
+    let path = format!("{}/session", get_path(folder_name));
     let mut ids: Vec<String> = vec![];
     if let Ok(entries) = std::fs::read_dir(&path) {
         entries.for_each(|entry| {
@@ -74,7 +61,7 @@ fn get_session_ids(folder_name: &str) -> Vec<String> {
 
 async fn get_session_size_in_bytes(folder_name: &str, id: &str) -> u64 {
     let folder = get_path(folder_name);
-    let session_path = format!("{folder}/{id}.session");
+    let session_path = format!("{folder}/session/{id}.session");
     let session_file = tokio::fs::File::open(&session_path)
         .await
         .unwrap_or_else(|e| panic!("Failed to get file size of {session_path}. Reason: {e}"));
@@ -83,15 +70,6 @@ async fn get_session_size_in_bytes(folder_name: &str, id: &str) -> u64 {
         .await
         .unwrap_or_else(|e| panic!("Failed to get file size. Reason {e}"))
         .size()
-}
-
-fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Result<(), ()>> {
-    let ctx = event_bus.context();
-    let folder = get_path(folder);
-    tokio::spawn(async move {
-        let mut storage = SessionFsStorage::new(&folder, ctx);
-        storage.run().await
-    })
 }
 
 #[tokio::test]

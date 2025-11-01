@@ -1,0 +1,21 @@
+{
+    "name": "Oschersleben",
+    "startline": {
+        "latitude": 52.0270889,
+        "longitude": 11.2803483
+    },
+    "finishline": {
+        "latitude": 52.0270889,
+        "longitude": 11.2803483
+    },
+    "sectors": [
+        {
+            "latitude": 52.0298205,
+            "longitude": 11.2741851
+        },
+        {
+            "latitude": 52.0299681,
+            "longitude": 11.2772076
+        }
+    ]
+}

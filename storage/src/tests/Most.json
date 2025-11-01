@@ -1,0 +1,22 @@
+{
+    "name": "Most",
+    "startline": {
+        "latitude": 50.519449,
+        "longitude": 13.607738
+    },
+    "finishline": {
+        "latitude": 50.519449,
+        "longitude": 13.607738
+    },
+    "sectors": [
+        {
+            "latitude": 50.515869,
+            "longitude": 13.591082
+        },
+        {
+            "latitude": 50.521772,
+            "longitude": 13.600161
+        }
+    ]
+}
+
