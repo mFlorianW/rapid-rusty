@@ -100,7 +100,7 @@ enum LaptimerState {
 ///
 /// # Type Parameters
 /// - `T`: The time source implementation (e.g., [`MonotonicTimeSource`]) used to measure elapsed time.
-///         Defaults to [`MonotonicTimeSource`].
+///   Defaults to [`MonotonicTimeSource`].
 #[derive(Debug)]
 pub struct SimpleLaptimer<T: ElapsedTimeSource = MonotonicTimeSource> {
     track: common::track::Track,

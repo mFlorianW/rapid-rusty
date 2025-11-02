@@ -2,7 +2,7 @@
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
-use common::{session::Session, test_helper::track, track::Track};
+use common::{session::Session, track::Track};
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
     LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr,

@@ -2,7 +2,7 @@ use crate::constant_source::ConstantGnssModule;
 use chrono::{DateTime, Utc};
 use common::position::{GnssInformation, GnssPosition, Position};
 use module_core::{
-    Event, EventBus, EventKind, GnssPositionPtr, Module, ModuleCtx, payload_ref,
+    Event, EventBus, EventKind, Module, ModuleCtx, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 

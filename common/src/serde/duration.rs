@@ -13,6 +13,7 @@ pub fn duration_to_string<S: Serializer>(duration: &Duration) -> Result<String, 
     Ok(time.format(FORMAT).to_string())
 }
 
+#[allow(dead_code)]
 pub fn serialize<S>(duration: &Duration, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
