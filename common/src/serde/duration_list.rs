@@ -5,8 +5,6 @@ use serde::ser::SerializeSeq;
 use serde::{self, Deserializer, Serializer};
 use std::fmt;
 
-const FORMAT: &str = "%H:%M:%S%.3f";
-
 pub fn serialize<S>(durations: &Vec<Duration>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
