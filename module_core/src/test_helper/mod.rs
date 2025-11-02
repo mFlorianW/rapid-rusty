@@ -87,3 +87,13 @@ pub async fn wait_for_event(
     }
     panic!("Failed to receive event of type {:?}", exp_event);
 }
+
+pub struct GenericResponseHandler {
+    resp: Event,
+}
+
+impl GenericResponseHandler {
+    pub fn new(event: Event) -> Self {
+        GenericResponseHandler { resp: event }
+    }
+}
