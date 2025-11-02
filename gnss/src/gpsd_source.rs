@@ -1,5 +1,5 @@
 use crate::GnssPosition;
-use common::position::{self, GnssInformation, GnssStatus};
+use common::position::{GnssInformation, GnssStatus};
 use futures::StreamExt;
 use gpsd_proto::{self, Mode, Satellite, Sky, Tpv};
 use module_core::Event;

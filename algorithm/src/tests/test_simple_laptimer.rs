@@ -1,5 +1,4 @@
 use crate::*;
-use common::lap;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
 use module_core::test_helper::{stop_module, wait_for_event};
 use module_core::{EventBus, Module, payload_ref};
