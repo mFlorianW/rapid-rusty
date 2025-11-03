@@ -1,7 +1,7 @@
 use crate::*;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
 use module_core::test_helper::{stop_module, wait_for_event};
-use module_core::{EventBus, Module, payload_ref};
+use module_core::{EventBus, EventKindDiscriminants, Module, payload_ref};
 use std::sync::Arc;
 use tests::laptimer_positions::*;
 
@@ -32,16 +32,16 @@ pub async fn drive_whole_map_with_sectors() {
         publish_position(&event_bus, &get_finishline_postion2());
         publish_position(&event_bus, &get_finishline_postion3());
         publish_position(&event_bus, &get_finishline_postion4());
-        let exp_event = Event {
-            kind: EventKind::LapStartedEvent,
-        };
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            exp_event.kind_discriminant(),
+            EventKindDiscriminants::LapStartedEvent,
         )
         .await;
-        assert_eq!(event.kind_discriminant(), exp_event.kind_discriminant());
+        assert_eq!(
+            EventKindDiscriminants::from(event.kind),
+            EventKindDiscriminants::LapStartedEvent
+        );
     }
 
     {
@@ -54,18 +54,15 @@ pub async fn drive_whole_map_with_sectors() {
         publish_position(&event_bus, &get_sector1_postion2());
         publish_position(&event_bus, &get_sector1_postion3());
         publish_position(&event_bus, &get_sector1_postion4());
-        let exp_event = Event {
-            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 120000000).into()),
-        };
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            exp_event.kind_discriminant(),
+            EventKindDiscriminants::SectorFinshedEvent,
         )
         .await;
         assert_eq!(
-            payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
-            payload_ref!(exp_event.kind, EventKind::SectorFinshedEvent).unwrap()
+            **payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            std::time::Duration::new(10, 120000000)
         );
     }
 
@@ -79,18 +76,15 @@ pub async fn drive_whole_map_with_sectors() {
         publish_position(&event_bus, &get_sector2_postion2());
         publish_position(&event_bus, &get_sector2_postion3());
         publish_position(&event_bus, &get_sector2_postion4());
-        let exp_event = Event {
-            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 130000000).into()),
-        };
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            exp_event.kind_discriminant(),
+            EventKindDiscriminants::SectorFinshedEvent,
         )
         .await;
         assert_eq!(
-            payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
-            payload_ref!(exp_event.kind, EventKind::SectorFinshedEvent).unwrap()
+            **payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            std::time::Duration::new(10, 130000000)
         );
     }
 
@@ -106,45 +100,36 @@ pub async fn drive_whole_map_with_sectors() {
         publish_position(&event_bus, &get_finishline_postion4());
 
         let mut receiver = event_bus.subscribe();
-        let exp_sec_finished_event = Event {
-            kind: EventKind::SectorFinshedEvent(std::time::Duration::new(10, 140000000).into()),
-        };
         let sector_finished_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            exp_sec_finished_event.kind_discriminant(),
+            EventKindDiscriminants::SectorFinshedEvent,
         );
         let mut receiver = event_bus.subscribe();
-        let exp_lap_finshed_event = Event {
-            kind: EventKind::LapFinishedEvent(std::time::Duration::new(30, 390000000).into()),
-        };
         let lap_finished_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            exp_lap_finshed_event.kind_discriminant(),
+            EventKindDiscriminants::LapFinishedEvent,
         );
         let mut receiver = event_bus.subscribe();
-        let exp_lap_started_event = Event {
-            kind: EventKind::LapStartedEvent,
-        };
         let lap_started_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            exp_lap_started_event.kind_discriminant(),
+            EventKindDiscriminants::LapStartedEvent,
         );
         let (sector_finished_event, lap_finished_event, lap_started_event) =
             tokio::join!(sector_finished_event, lap_finished_event, lap_started_event);
         assert_eq!(
-            payload_ref!(sector_finished_event.kind, EventKind::SectorFinshedEvent).unwrap(),
-            payload_ref!(exp_sec_finished_event.kind, EventKind::SectorFinshedEvent).unwrap()
+            **payload_ref!(sector_finished_event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            std::time::Duration::new(10, 140000000)
         );
         assert_eq!(
-            payload_ref!(lap_finished_event.kind, EventKind::LapFinishedEvent).unwrap(),
-            payload_ref!(exp_lap_finshed_event.kind, EventKind::LapFinishedEvent).unwrap()
+            **payload_ref!(lap_finished_event.kind, EventKind::LapFinishedEvent).unwrap(),
+            std::time::Duration::new(30, 390000000)
         );
         assert_eq!(
-            lap_started_event.kind_discriminant(),
-            exp_lap_started_event.kind_discriminant()
+            EventKindDiscriminants::from(lap_started_event.kind),
+            EventKindDiscriminants::LapStartedEvent
         );
     }
 

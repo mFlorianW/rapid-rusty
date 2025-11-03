@@ -9,3 +9,5 @@ common = { workspace = true }
 tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros"] }
 chrono = { version = "~0.4", features = ["serde"] }
 async-trait = "~0.1"
+strum = { version = "~0.27" }
+strum_macros = { version = "~0.27" }
