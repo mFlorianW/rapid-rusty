@@ -1,6 +1,5 @@
-use crate::{Event, EventBus, EventKind};
+use crate::{Event, EventBus, EventKind, EventKindDiscriminants};
 use core::panic;
-use std::mem::Discriminant;
 use tokio::time::timeout;
 
 /// Sends a quit signal to a running module and waits for it to stop gracefully.
@@ -60,7 +59,7 @@ pub async fn stop_module(
 ///   from which events are received.
 /// * `duration` — The maximum amount of time to wait for the expected event.
 /// * `exp_event` — The expected event type, represented as a
-///   [`std::mem::Discriminant<EventKind>`]. Only the variant type is compared;
+///   [`EventKindDiscriminants`]. Only the variant type is compared;
 ///   payload data is ignored.
 ///
 /// # Panics
@@ -75,13 +74,13 @@ pub async fn stop_module(
 pub async fn wait_for_event(
     rx: &mut tokio::sync::broadcast::Receiver<Event>,
     duration: std::time::Duration,
-    exp_event: Discriminant<EventKind>,
+    exp_event: EventKindDiscriminants,
 ) -> Event {
     let steps = duration.as_millis() / 10;
     let step_duration = duration / 10;
     for _ in 0..steps {
         if let Ok(Ok(event)) = timeout(step_duration, rx.recv()).await
-            && event.kind_discriminant() == exp_event
+            && EventKindDiscriminants::from(&event.kind) == exp_event
         {
             return event;
         }

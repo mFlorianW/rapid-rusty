@@ -2,13 +2,12 @@ use super::*;
 use crate::tests::create_storage_module;
 use common::track::Track;
 use module_core::{
-    Request, payload_ref,
+    EventKindDiscriminants, Request, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{
     fs::{File, create_dir_all},
     io::Write,
-    mem::discriminant,
     path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
@@ -57,7 +56,8 @@ fn create_track(test_folder_name: &Path, id: &str, content: Option<&str>) {
 pub async fn load_stored_track_ids() {
     let eb = EventBus::default();
     let test_folder_name = "load_stored_track_ids";
-    let exp_ids = init_none_empty_test(test_folder_name);
+    let mut exp_ids = init_none_empty_test(test_folder_name);
+    exp_ids.sort();
     let mut storage = create_storage_module(test_folder_name, &eb);
 
     eb.publish(&Event {
@@ -67,32 +67,21 @@ pub async fn load_stored_track_ids() {
             data: (),
         })),
     });
-    let exp_event = EventKind::LoadStoredTrackIdsResponseEvent(
-        Response {
-            id: 10,
-            receiver_addr: 22,
-            data: exp_ids,
-        }
-        .into(),
-    );
     let load_stored_event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        discriminant(&exp_event),
+        EventKindDiscriminants::LoadStoredTrackIdsResponseEvent,
     )
     .await;
 
-    let exp_payload = payload_ref!(exp_event, EventKind::LoadStoredTrackIdsResponseEvent).unwrap();
     let payload = payload_ref!(
         load_stored_event.kind,
         EventKind::LoadStoredTrackIdsResponseEvent
     )
     .unwrap();
 
-    assert_eq!(exp_payload.id, payload.id);
-    assert_eq!(exp_payload.receiver_addr, payload.receiver_addr);
-    let mut exp_ids = exp_payload.data.clone();
-    exp_ids.sort();
+    assert_eq!(payload.id, 10);
+    assert_eq!(payload.receiver_addr, 22);
     let mut ids = payload.data.clone();
     ids.sort();
     assert_eq!(exp_ids, ids);
@@ -121,26 +110,17 @@ pub async fn read_stored_session_ids() {
             .into(),
         ),
     });
-    let exp_event = EventKind::LoadAllStoredTracksResponseEvent(
-        Response {
-            id: 10,
-            receiver_addr: 22,
-            data: tracks.clone(),
-        }
-        .into(),
-    );
     let event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        discriminant(&exp_event),
+        EventKindDiscriminants::LoadAllStoredTracksResponseEvent,
     )
     .await;
 
-    let exp_payload = payload_ref!(exp_event, EventKind::LoadAllStoredTracksResponseEvent).unwrap();
     let payload = payload_ref!(event.kind, EventKind::LoadAllStoredTracksResponseEvent).unwrap();
-    assert_eq!(exp_payload.id, payload.id);
-    assert_eq!(exp_payload.receiver_addr, payload.receiver_addr);
-    assert_eq!(exp_payload.data, payload.data);
+    assert_eq!(payload.id, 10);
+    assert_eq!(payload.receiver_addr, 22);
+    assert_eq!(payload.data, tracks);
 
     stop_module(&eb, &mut storage).await;
 }

@@ -1,5 +1,6 @@
 use common::{session::Session, track::Track};
 use std::{io::ErrorKind, sync::Arc, sync::RwLock};
+use strum_macros::EnumDiscriminants;
 
 /// Represents a high-level event in the system.
 ///
@@ -119,7 +120,7 @@ macro_rules! payload_ref {
 
 /// Enumerates the different kinds of events that can be emitted
 /// and transmitted via the [`EventBus`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, EnumDiscriminants)]
 pub enum EventKind {
     /// Indicates that a module shall terminate.
     QuitEvent,

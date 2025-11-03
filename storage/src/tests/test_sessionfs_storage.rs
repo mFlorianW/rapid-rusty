@@ -3,11 +3,11 @@ use crate::tests::{create_storage_module, get_path, setup_empty_test_folder};
 use common::test_helper::session::get_session;
 use core::panic;
 use module_core::{
-    EmptyRequestPtr, Event, EventBus, Request, Response, SaveSessionRequestPtr,
-    SaveSessionResponsePtr, payload_ref,
+    EmptyRequestPtr, Event, EventBus, EventKindDiscriminants, Request, SaveSessionRequestPtr,
+    payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
-use std::{fs::create_dir, mem::discriminant, sync::Arc};
+use std::fs::create_dir;
 use std::{os::unix::fs::MetadataExt, time::Duration};
 
 fn create_empty_session(id: &str, folder_name: &str) {
@@ -87,23 +87,17 @@ pub async fn read_stored_session_ids() {
         })),
     });
 
-    let resp = Response {
-        id: 10,
-        receiver_addr: 20,
-        data: Arc::new(exp_ids.clone()),
-    };
-    let load_ids_event = EventKind::LoadStoredSessionIdsResponseEvent(resp.clone().into());
     let ids_event = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(100),
-        discriminant(&load_ids_event),
+        module_core::EventKindDiscriminants::LoadStoredSessionIdsResponseEvent,
     )
     .await;
     let payload =
         &**payload_ref!(ids_event.kind, EventKind::LoadStoredSessionIdsResponseEvent).unwrap();
     assert_eq!(*payload.data, exp_ids);
-    assert_eq!(payload.id, resp.id);
-    assert_eq!(payload.receiver_addr, resp.receiver_addr);
+    assert_eq!(payload.id, 10);
+    assert_eq!(payload.receiver_addr, 20);
 
     stop_module(&event_bus, &mut handle).await;
 }
@@ -124,33 +118,18 @@ pub async fn save_load_not_existing_session() {
             data: get_session().into(),
         })),
     });
-    let exp_save_resp = Event {
-        kind: EventKind::SaveSessionResponseEvent(SaveSessionResponsePtr::new(Response {
-            id: 11,
-            receiver_addr: 20,
-            data: Ok(exp_id.clone()),
-        })),
-    };
     let save_resp = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(100),
-        exp_save_resp.kind_discriminant(),
+        module_core::EventKindDiscriminants::SaveSessionResponseEvent,
     )
     .await;
     let save_resp_payload =
         payload_ref!(save_resp.kind, EventKind::SaveSessionResponseEvent).unwrap();
-    let exp_save_resp_payload =
-        payload_ref!(exp_save_resp.kind, EventKind::SaveSessionResponseEvent).unwrap();
-    assert_eq!(save_resp_payload.id, exp_save_resp_payload.id);
-    assert_eq!(
-        save_resp_payload.receiver_addr,
-        exp_save_resp_payload.receiver_addr
-    );
-    assert_eq!(
-        save_resp_payload.receiver_addr,
-        exp_save_resp_payload.receiver_addr
-    );
-    assert_eq!(save_resp_payload.data, exp_save_resp_payload.data);
+    assert_eq!(save_resp_payload.id, 11);
+    assert_eq!(save_resp_payload.receiver_addr, 20);
+    assert!(save_resp_payload.data.is_ok());
+    assert_eq!(save_resp_payload.data.clone().unwrap(), exp_id);
 
     event_bus.publish(&Event {
         kind: EventKind::LoadSessionRequestEvent(
@@ -162,32 +141,21 @@ pub async fn save_load_not_existing_session() {
             .into(),
         ),
     });
-    let kind = EventKind::LoadSessionResponseEvent(
-        Response {
-            id: 12,
-            receiver_addr: 20,
-            data: Ok(get_session().into()),
-        }
-        .into(),
-    );
     let load_resp = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(100),
-        discriminant(&kind),
+        EventKindDiscriminants::LoadSessionResponseEvent,
     )
     .await;
 
     let response = &**payload_ref!(load_resp.kind, EventKind::LoadSessionResponseEvent).unwrap();
-    let exp_response = &**payload_ref!(kind, EventKind::LoadSessionResponseEvent).unwrap();
-    match (&response.data, &exp_response.data) {
-        (Ok(session_lock), Ok(exp_lock)) => {
-            assert_eq!(*session_lock.read().unwrap(), *exp_lock.read().unwrap())
-        }
-        (Err(err1), _) => panic!("Failed to load session due to error {}", err1),
-        _ => panic!("Mismatched response types"),
-    }
-    assert_eq!(response.id, exp_response.id);
-    assert_eq!(response.receiver_addr, exp_response.receiver_addr);
+    assert!(&response.data.is_ok());
+    assert_eq!(
+        *response.data.as_ref().unwrap().read().unwrap(),
+        get_session()
+    );
+    assert_eq!(response.id, 12);
+    assert_eq!(response.receiver_addr, 20);
 
     stop_module(&event_bus, &mut storage).await;
 }
@@ -209,30 +177,17 @@ pub async fn delete_existing_session() {
             .into(),
         ),
     });
-    let exp_delete_resp = EventKind::DeleteSessionResponseEvent(
-        Response {
-            id: 13,
-            receiver_addr: 20,
-            data: Ok(()),
-        }
-        .into(),
-    );
     let delete_resp = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(100),
-        discriminant(&exp_delete_resp),
+        EventKindDiscriminants::DeleteSessionResponseEvent,
     )
     .await;
-    let exp_delete_payload =
-        payload_ref!(exp_delete_resp, EventKind::DeleteSessionResponseEvent).unwrap();
     let delete_payload =
         payload_ref!(delete_resp.kind, EventKind::DeleteSessionResponseEvent).unwrap();
-    assert_eq!(delete_payload.data, exp_delete_payload.data);
-    assert_eq!(delete_payload.id, exp_delete_payload.id);
-    assert_eq!(
-        delete_payload.receiver_addr,
-        exp_delete_payload.receiver_addr
-    );
+    assert_eq!(delete_payload.data, Ok(()));
+    assert_eq!(delete_payload.id, 13);
+    assert_eq!(delete_payload.receiver_addr, 20);
     let ids = get_session_ids(test_folder_name);
     assert_eq!(ids.len(), 1);
     assert_eq!(ids[0], session_ids[1]);

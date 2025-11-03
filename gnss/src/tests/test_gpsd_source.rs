@@ -3,8 +3,7 @@ use chrono::DateTime;
 use common::position::{GnssInformation, GnssPosition, GnssStatus};
 use core::panic;
 use module_core::{
-    Event, EventBus, EventKind, GnssInformationPtr, GnssPositionPtr, Module, ModuleCtx,
-    payload_ref,
+    EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{io::Error, str::FromStr, time::Duration};
@@ -112,19 +111,15 @@ async fn notify_gnss_position() {
         .await
         .expect("Failed to send TPV msg");
 
-    let expected_pos = GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive());
-    let exp_event = Event {
-        kind: EventKind::GnssPositionEvent(GnssPositionPtr::new(expected_pos)),
-    };
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        exp_event.kind_discriminant(),
+        EventKindDiscriminants::GnssPositionEvent,
     )
     .await;
     assert_eq!(
-        payload_ref!(event.kind, EventKind::GnssPositionEvent).unwrap(),
-        payload_ref!(exp_event.kind, EventKind::GnssPositionEvent).unwrap()
+        **payload_ref!(event.kind, EventKind::GnssPositionEvent).unwrap(),
+        GnssPosition::new(1.0, 1.0, 22.0, &datetime.time(), &datetime.date_naive())
     );
 
     stop_module(&event_bus, &mut source).await;
@@ -139,19 +134,15 @@ async fn notify_gnss_information_on_fix_change() {
         .await
         .expect("Failed to send TPV msg");
 
-    let expected_information = GnssInformation::new(&GnssStatus::Fix3d, 0);
-    let exp_event = Event {
-        kind: EventKind::GnssInformationEvent(GnssInformationPtr::new(expected_information)),
-    };
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        exp_event.kind_discriminant(),
+        EventKindDiscriminants::GnssInformationEvent,
     )
     .await;
     assert_eq!(
-        payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
-        payload_ref!(exp_event.kind, EventKind::GnssInformationEvent).unwrap()
+        **payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
+        GnssInformation::new(&GnssStatus::Fix3d, 0)
     );
 
     stop_module(&event_bus, &mut source).await;
@@ -185,19 +176,15 @@ async fn notify_gnss_information_on_sky_change() {
         .await
         .expect("Failed to send SKY msg");
 
-    let expected_information = GnssInformation::new(&GnssStatus::Unknown, 5);
-    let exp_event = Event {
-        kind: EventKind::GnssInformationEvent(GnssInformationPtr::new(expected_information)),
-    };
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        exp_event.kind_discriminant(),
+        EventKindDiscriminants::GnssInformationEvent,
     )
     .await;
     assert_eq!(
-        payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
-        payload_ref!(exp_event.kind, EventKind::GnssInformationEvent).unwrap()
+        **payload_ref!(event.kind, EventKind::GnssInformationEvent).unwrap(),
+        GnssInformation::new(&GnssStatus::Unknown, 5)
     );
 
     stop_module(&event_bus, &mut source).await;
