@@ -1,4 +1,4 @@
-use crate::{Event, EventBus, EventKind, EventKindDiscriminants};
+use crate::{Event, EventBus, EventKind, EventKindDiscriminants, ModuleCtx};
 use core::panic;
 use tokio::time::timeout;
 
@@ -88,12 +88,77 @@ pub async fn wait_for_event(
     panic!("Failed to receive event of type {:?}", exp_event);
 }
 
-pub struct GenericResponseHandler {
-    resp: Event,
+/// Manages the automatic handling of asynchronous response events.
+///
+/// The [`ResponseHandler`] spawns a background task that listens for incoming
+/// events on the associated module context and sends a predefined response
+/// when an event of a specific type is received.  
+/// It provides scoped, self-contained lifecycle management for asynchronous
+/// response handling tasks.
+///
+/// When the handler is dropped, its background task is automatically aborted
+/// to prevent resource leaks or dangling tasks.
+pub struct ResponseHandler {
+    handle: tokio::task::JoinHandle<()>,
 }
 
-impl GenericResponseHandler {
-    pub fn new(event: Event) -> Self {
-        GenericResponseHandler { resp: event }
+struct ResponseHandlerRuntime {
+    pub resp: Event,
+    pub request_type: EventKindDiscriminants,
+    pub ctx: ModuleCtx,
+}
+
+impl ResponseHandler {
+    /// Creates and starts a new [`ResponseHandler`] instance.
+    ///
+    /// This function initializes a runtime context and spawns an asynchronous
+    /// task that monitors the event receiver for matching request types.
+    /// When a matching event is detected, the associated response is sent
+    /// through the module context.
+    pub fn new(
+        ctx: ModuleCtx,
+        request_type: EventKindDiscriminants,
+        response_event: Event,
+    ) -> Self {
+        let rt = ResponseHandlerRuntime {
+            resp: response_event,
+            request_type,
+            ctx,
+        };
+        let handle = run(rt);
+        ResponseHandler { handle }
+    }
+}
+
+/// Spawns the background task that performs event monitoring and response dispatch.
+///
+/// This function runs an asynchronous loop that continuously waits for incoming
+/// events. When an event matches the expected request type, it triggers the
+/// transmission of the associated response.
+fn run(mut rt: ResponseHandlerRuntime) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                event = rt.ctx.receiver.recv() =>
+                match event {
+                    Ok(event) => {
+                        if EventKindDiscriminants::from(event.kind) == rt.request_type {
+                            let _ = rt.ctx.sender.send(rt.resp.clone());
+                        }
+                    }
+                    Err(e) => print!("Failed to receive request. Error: {}",  e)
+                }
+            }
+        }
+    })
+}
+
+impl Drop for ResponseHandler {
+    /// Aborts the background task when the handler is dropped.
+    ///
+    /// This ensures that no asynchronous task remains active after
+    /// the handler goes out of scope
+    fn drop(&mut self) {
+        self.handle.abort();
     }
 }
