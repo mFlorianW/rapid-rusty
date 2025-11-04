@@ -1,4 +1,4 @@
-use super::super::*;
+use module_core::*;
 
 #[tokio::test]
 pub async fn events_delivered() {

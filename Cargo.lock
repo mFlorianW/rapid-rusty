@@ -395,6 +395,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "laptimer"
+version = "0.1.0"
+dependencies = [
+ "algorithm",
+ "async-trait",
+ "chrono",
+ "common",
+ "module_core",
+ "tokio",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

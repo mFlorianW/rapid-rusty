@@ -1,9 +1,12 @@
-use crate::*;
+use common::position::GnssPosition;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
+use laptimer::*;
 use module_core::test_helper::{stop_module, wait_for_event};
-use module_core::{EventBus, EventKindDiscriminants, Module, payload_ref};
+use module_core::{Event, EventBus, EventKind, EventKindDiscriminants, Module, payload_ref};
 use std::sync::Arc;
-use tests::laptimer_positions::*;
+use std::time::Duration;
+mod util;
+use util::laptimer_positions::*;
 
 fn publish_position(event_bus: &EventBus, pos: &GnssPosition) {
     event_bus.publish(&Event {

@@ -1,4 +1,4 @@
-use crate::{test_helper::track::get_track, test_helper::track::get_track_as_json, track::Track};
+use common::{test_helper::track::get_track, test_helper::track::get_track_as_json, track::Track};
 
 #[test]
 pub fn deserialize_track_from_json() {

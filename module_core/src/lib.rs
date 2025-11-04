@@ -106,6 +106,9 @@ pub type LoadStoredTrackIdsResponsePtr = Arc<Response<Vec<String>>>;
 /// A thread-safe shared pointer to a load all stored tracks request.
 pub type LoadStoredTracksReponsePtr = Arc<Response<Vec<Track>>>;
 
+/// A thread-safe shared pointer to a track detection request.
+pub type TrackDetectionResponsePtr = Arc<Response<Vec<Track>>>;
+
 /// Generic helper macro to extract enum payloads
 #[macro_export]
 macro_rules! payload_ref {
@@ -204,6 +207,10 @@ pub enum EventKind {
     /// This event variant carries a [`Vec<String>`].
     /// The vector contains all tracks found in the persistent storage.
     LoadAllStoredTracksResponseEvent(LoadStoredTracksReponsePtr),
+
+    DetectTrackRequestEvent(EmptyRequestPtr),
+
+    DetectTrackResponseEvent(TrackDetectionResponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.
@@ -302,6 +309,3 @@ impl ModuleCtx {
 }
 
 pub mod test_helper;
-
-#[cfg(test)]
-mod tests;

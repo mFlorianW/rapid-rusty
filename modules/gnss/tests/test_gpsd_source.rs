@@ -1,7 +1,7 @@
-use crate::gpsd_source::GpsdModule;
 use chrono::DateTime;
 use common::position::{GnssInformation, GnssPosition, GnssStatus};
 use core::panic;
+use gnss::gpsd_source::GpsdModule;
 use module_core::{
     EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, payload_ref,
     test_helper::{stop_module, wait_for_event},

@@ -1,5 +1,5 @@
-use crate::position::GnssPosition;
 use chrono::{NaiveDate, NaiveTime};
+use common::position::GnssPosition;
 
 fn get_gnss_position_as_json<'a>() -> &'a str {
     r#"

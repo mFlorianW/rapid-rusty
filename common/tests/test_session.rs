@@ -1,4 +1,4 @@
-use crate::{
+use common::{
     session::Session,
     test_helper::session::{get_session, get_session_as_json},
 };

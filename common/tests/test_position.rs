@@ -1,4 +1,4 @@
-use crate::position::Position;
+use common::position::Position;
 
 fn get_position_as_json<'a>() -> &'a str {
     r#"

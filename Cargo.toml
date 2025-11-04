@@ -3,15 +3,15 @@ resolver = "2"
 members = [
     "algorithm",
     "common",
-    "gnss",
-    "storage",
     "module_core",
+    "modules/*"
 ]
 
 [workspace.dependencies]
 gnss = { path = "gnss" }
 common = { path = "common" }
 module_core = { path = "module_core" }
+algorithm = { path = "algorithm" }
 
 tracing = "~0.1"
 test-log = { version = "~0.2", features = [ "trace" ] }

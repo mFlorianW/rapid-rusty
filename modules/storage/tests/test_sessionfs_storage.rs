@@ -1,14 +1,15 @@
-use super::super::*;
-use crate::tests::{create_storage_module, get_path, setup_empty_test_folder};
 use common::test_helper::session::get_session;
 use core::panic;
 use module_core::{
-    EmptyRequestPtr, Event, EventBus, EventKindDiscriminants, Request, SaveSessionRequestPtr,
-    payload_ref,
+    EmptyRequestPtr, Event, EventBus, EventKind, EventKindDiscriminants, Request,
+    SaveSessionRequestPtr, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::fs::create_dir;
 use std::{os::unix::fs::MetadataExt, time::Duration};
+
+mod helper;
+use helper::{create_storage_module, get_path, setup_empty_test_folder};
 
 fn create_empty_session(id: &str, folder_name: &str) {
     let file = format!("{}/session/{id}.session", get_path(folder_name));

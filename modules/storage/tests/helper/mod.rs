@@ -1,12 +1,12 @@
-use super::*;
 use module_core::{EventBus, Module};
+use storage::*;
 use tokio::task::JoinHandle;
 
-fn get_path(folder_name: &str) -> String {
+pub fn get_path(folder_name: &str) -> String {
     format!("/tmp/rapid-rusty/{folder_name}")
 }
 
-fn setup_empty_test_folder(folder_name: &str) {
+pub fn setup_empty_test_folder(folder_name: &str) {
     let path = get_path(folder_name);
     if let Ok(true) = std::fs::exists(&path) {
         std::fs::remove_dir_all(&path)
@@ -16,7 +16,7 @@ fn setup_empty_test_folder(folder_name: &str) {
         .unwrap_or_else(|err| panic!("Failed to create test dir for {path}. Reason: {err}"));
 }
 
-fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Result<(), ()>> {
+pub fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Result<(), ()>> {
     let ctx = event_bus.context();
     let folder = get_path(folder);
     tokio::spawn(async move {
@@ -24,6 +24,3 @@ fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Resul
         storage.run().await
     })
 }
-
-mod test_sessionfs_storage;
-mod test_trackfs_storage;

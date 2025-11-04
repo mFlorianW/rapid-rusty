@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use crate::{lap::Lap, position::GnssPosition};
 use chrono::{Duration, NaiveDate, NaiveTime};
+use common::{lap::Lap, position::GnssPosition};
 
 #[test]
 fn calculate_laptime_with_one_sector() {

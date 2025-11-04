@@ -366,6 +366,3 @@ impl module_core::Module for FilesSystemStorage {
         Ok(())
     }
 }
-
-#[cfg(test)]
-pub mod tests;

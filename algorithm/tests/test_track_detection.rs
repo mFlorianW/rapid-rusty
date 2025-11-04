@@ -1,4 +1,4 @@
-use crate::is_on_track;
+use algorithm::is_on_track;
 use common::position::Position;
 use common::test_helper::track::get_track;
 

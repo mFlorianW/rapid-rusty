@@ -1,8 +1,6 @@
-use super::*;
-use crate::tests::create_storage_module;
 use common::track::Track;
 use module_core::{
-    EventKindDiscriminants, Request, payload_ref,
+    EmptyRequestPtr, Event, EventBus, EventKind, EventKindDiscriminants, Request, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{
@@ -12,11 +10,13 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+mod helper;
+use helper::{create_storage_module, get_path, setup_empty_test_folder};
 
 fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
     let ids = vec!["Oschersleben".to_owned(), "Most".to_owned()];
-    let osl = include_str!("Oschersleben.json");
-    let most = include_str!("Most.json");
+    let osl = include_str!("helper/Oschersleben.json");
+    let most = include_str!("helper/Most.json");
 
     setup_empty_test_folder(test_folder_name);
     let mut track_folder = PathBuf::from_str(&get_path(test_folder_name)).unwrap();
@@ -95,8 +95,8 @@ pub async fn read_stored_session_ids() {
     let test_folder_name = "load_stored_all_track";
     init_none_empty_test(test_folder_name);
     let tracks = vec![
-        Track::from_json(include_str!("Most.json")).unwrap(),
-        Track::from_json(include_str!("Oschersleben.json")).unwrap(),
+        Track::from_json(include_str!("helper/Most.json")).unwrap(),
+        Track::from_json(include_str!("helper/Oschersleben.json")).unwrap(),
     ];
     let mut storage = create_storage_module(test_folder_name, &eb);
 

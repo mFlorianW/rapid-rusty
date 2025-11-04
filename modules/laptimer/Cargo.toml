@@ -1,0 +1,13 @@
+[package]
+name = "laptimer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { workspace =true }
+module_core = { workspace =true }
+algorithm = { workspace =true }
+
+chrono = { version = "~0.4" }
+tokio = { version = "~1.44", features = ["rt-multi-thread", "sync", "macros"] }
+async-trait = "~0.1"
