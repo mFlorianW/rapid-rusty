@@ -13,5 +13,9 @@ common = { path = "common" }
 module_core = { path = "module_core" }
 algorithm = { path = "algorithm" }
 
+tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util", "fs"] }
+tokio-util = { version = "~0.7", features = ["codec"] }
+futures = "0.3"
+async-trait = "~0.1"
 tracing = "~0.1"
 test-log = { version = "~0.2", features = [ "trace" ] }
