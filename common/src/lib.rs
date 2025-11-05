@@ -9,6 +9,3 @@ mod serde;
 pub mod session;
 pub mod test_helper;
 pub mod track;
-
-#[cfg(test)]
-mod tests;

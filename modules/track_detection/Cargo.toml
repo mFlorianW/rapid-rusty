@@ -1,0 +1,17 @@
+[package]
+name = "track-detection"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+algorithm.workspace = true
+common.workspace = true
+module_core.workspace =  true
+tracing.workspace =  true
+test-log.workspace =  true
+tokio.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+
+chrono = { version = "~0.4" }

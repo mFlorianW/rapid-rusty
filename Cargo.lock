@@ -395,6 +395,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "laptimer"
+version = "0.1.0"
+dependencies = [
+ "algorithm",
+ "async-trait",
+ "chrono",
+ "common",
+ "module_core",
+ "tokio",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -802,6 +814,22 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "track-detection"
+version = "0.1.0"
+dependencies = [
+ "algorithm",
+ "async-trait",
+ "chrono",
+ "common",
+ "futures",
+ "module_core",
+ "test-log",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
