@@ -15,8 +15,8 @@ use helper::{create_storage_module, get_path, setup_empty_test_folder};
 
 fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
     let ids = vec!["Oschersleben".to_owned(), "Most".to_owned()];
-    let osl = include_str!("helper/Oschersleben.json");
-    let most = include_str!("helper/Most.json");
+    let osl = include_str!("../../../assets/tracks/Oschersleben.json");
+    let most = include_str!("../../../assets/tracks/Most.json");
 
     setup_empty_test_folder(test_folder_name);
     let mut track_folder = PathBuf::from_str(&get_path(test_folder_name)).unwrap();
@@ -95,8 +95,8 @@ pub async fn read_stored_session_ids() {
     let test_folder_name = "load_stored_all_track";
     init_none_empty_test(test_folder_name);
     let tracks = vec![
-        Track::from_json(include_str!("helper/Most.json")).unwrap(),
-        Track::from_json(include_str!("helper/Oschersleben.json")).unwrap(),
+        Track::from_json(include_str!("../../../assets/tracks/Most.json")).unwrap(),
+        Track::from_json(include_str!("../../../assets/tracks/Oschersleben.json")).unwrap(),
     ];
     let mut storage = create_storage_module(test_folder_name, &eb);
 
