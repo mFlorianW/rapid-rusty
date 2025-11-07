@@ -1,0 +1,12 @@
+[package]
+name = "session"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common.workspace = true
+module_core.workspace = true
+tracing.workspace = true
+test-log.workspace = true
+tokio.workspace = true
+
