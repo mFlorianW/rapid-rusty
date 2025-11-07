@@ -1,8 +1,12 @@
+use common::elapsed_time_source::ElapsedTimeSource;
 use common::position::GnssPosition;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
+use common::test_helper::track::get_track;
 use laptimer::*;
-use module_core::test_helper::{stop_module, wait_for_event};
-use module_core::{Event, EventBus, EventKind, EventKindDiscriminants, Module, payload_ref};
+use module_core::test_helper::{ResponseHandler, stop_module, wait_for_event};
+use module_core::{
+    Event, EventBus, EventKind, EventKindDiscriminants, Module, Response, payload_ref,
+};
 use std::sync::Arc;
 use std::time::Duration;
 mod util;
@@ -14,20 +18,43 @@ fn publish_position(event_bus: &EventBus, pos: &GnssPosition) {
     });
 }
 
+fn create_laptimer<T>(
+    event_bus: &EventBus,
+    elapsed_time_source: T,
+) -> tokio::task::JoinHandle<Result<(), ()>>
+where
+    T: ElapsedTimeSource + Default + Send + 'static,
+{
+    let rsp_handler = ResponseHandler::new(
+        event_bus.context(),
+        EventKindDiscriminants::DetectTrackRequestEvent,
+        Event {
+            kind: EventKind::DetectTrackResponseEvent(
+                Response {
+                    id: 10,
+                    receiver_addr: 22,
+                    data: vec![get_track()],
+                }
+                .into(),
+            ),
+        },
+    );
+
+    let lp = SimpleLaptimer::new_with_source(elapsed_time_source, event_bus.context());
+
+    tokio::spawn(async move {
+        let _rsp_handler = rsp_handler;
+        let mut laptimer = lp;
+        laptimer.run().await
+    })
+}
+
 #[tokio::test]
 pub async fn drive_whole_map_with_sectors() {
     let event_bus = EventBus::default();
     let elapsed_time_source = ElapsedTestTimeSource::default();
     let elapsed_time_source_sender = elapsed_time_source.sender();
-    let laptimer_module_ctx = event_bus.context();
-    let mut laptimer_handle = tokio::spawn(async {
-        let mut laptimer = SimpleLaptimer::new_with_source(
-            common::test_helper::track::get_track(),
-            elapsed_time_source,
-            laptimer_module_ctx,
-        );
-        laptimer.run().await
-    });
+    let mut laptimer_handle = create_laptimer(&event_bus, elapsed_time_source);
 
     {
         // Lapstart

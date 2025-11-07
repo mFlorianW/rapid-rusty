@@ -1,11 +1,11 @@
 use algorithm::calculate_distance;
 use common::elapsed_time_source::{ElapsedTimeSource, MonotonicTimeSource};
 use common::position::{GnssPosition, Position};
-use common::track::Track;
 use core::f64;
-use module_core::{Event, EventKind, Module, ModuleCtx};
+use module_core::{Event, EventKind, Module, ModuleCtx, Request};
 use std::collections::VecDeque;
 use std::time::Duration;
+use tracing::error;
 
 /// Represents status updates emitted by the lap timer.
 ///
@@ -50,7 +50,7 @@ enum LaptimerState {
 ///   Defaults to [`MonotonicTimeSource`].
 #[derive(Debug)]
 pub struct SimpleLaptimer<T: ElapsedTimeSource = MonotonicTimeSource> {
-    track: common::track::Track,
+    track: Option<common::track::Track>,
     last_positions: VecDeque<Position>,
     state: LaptimerState,
     elapsed_time_source: T,
@@ -61,17 +61,17 @@ pub struct SimpleLaptimer<T: ElapsedTimeSource = MonotonicTimeSource> {
 
 impl SimpleLaptimer<MonotonicTimeSource> {
     /// Creates a new lap timer using the default [`MonotonicTimeSource`].
-    pub fn new(track: Track, ctx: ModuleCtx) -> Self {
-        SimpleLaptimer::new_with_source(track, MonotonicTimeSource::default(), ctx)
+    pub fn new(ctx: ModuleCtx) -> Self {
+        SimpleLaptimer::new_with_source(MonotonicTimeSource::default(), ctx)
     }
 }
 
 impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     /// Creates a new lap timer with a custom time source.
-    pub fn new_with_source(track: Track, elapsed_time_source: T, ctx: ModuleCtx) -> Self {
+    pub fn new_with_source(elapsed_time_source: T, ctx: ModuleCtx) -> Self {
         SimpleLaptimer {
             last_positions: VecDeque::with_capacity(4),
-            track,
+            track: None,
             state: LaptimerState::WaitingForFirstStart,
             elapsed_time_source,
             sector: 0,
@@ -105,7 +105,9 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
         if self.last_positions.len() < 4 {
             return;
         }
-        self.calculate_laptimer_state();
+        if self.track.is_some() {
+            self.calculate_laptimer_state();
+        }
     }
 
     /// Core finite state machine (FSM) logic.
@@ -113,8 +115,16 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     /// Depending on the current state and the detected crossing,
     /// this method transitions between states and notifies consumers.
     fn calculate_laptimer_state(&mut self) {
+        let track = match self.track {
+            Some(ref t) => t.clone(),
+            None => {
+                error!("calculate laptimer called without track");
+                return;
+            }
+        };
+
         if self.state == LaptimerState::WaitingForFirstStart
-            && self.is_point_passed(&self.track.startline)
+            && self.is_point_passed(&track.startline)
         {
             self.elapsed_time_source.start();
             self.state = LaptimerState::IteratingTrackPoints;
@@ -123,18 +133,17 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
                 kind: EventKind::LapStartedEvent,
             });
         } else if self.state == LaptimerState::IteratingTrackPoints
-            && self.is_point_passed(&self.track.sectors[self.sector])
+            && self.is_point_passed(&track.sectors[self.sector])
         {
             self.sector += 1;
-            if self.sector >= self.track.sectors.len() {
+            if self.sector >= track.sectors.len() {
                 self.state = LaptimerState::WaitingForFinish;
             }
             self.handle_sector_finsihed();
         } else if self.state == LaptimerState::WaitingForFinish {
-            let finish_point = self
-                .track
+            let finish_point = track
                 .finishline
-                .map_or(self.track.startline, |finishline| finishline);
+                .map_or(track.startline, |finishline| finishline);
             if self.is_point_passed(&finish_point) {
                 self.handle_sector_finsihed();
                 self.notify_consumer(Event {
@@ -142,7 +151,7 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
                         self.elapsed_time_source.elapsed_time().into(),
                     ),
                 });
-                if !self.track.sectors.is_empty() {
+                if !track.sectors.is_empty() {
                     // Start a new lap immediately
                     self.sector = 0;
                     self.sector_start = Duration::default();
@@ -205,6 +214,17 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
 #[async_trait::async_trait]
 impl<T: ElapsedTimeSource + Default + Send> Module for SimpleLaptimer<T> {
     async fn run(&mut self) -> Result<(), ()> {
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::DetectTrackRequestEvent(
+                Request {
+                    id: 10,
+                    sender_addr: 22,
+                    data: (),
+                }
+                .into(),
+            ),
+        });
+
         let mut run = true;
         while run {
             tokio::select! {
@@ -212,8 +232,18 @@ impl<T: ElapsedTimeSource + Default + Send> Module for SimpleLaptimer<T> {
                     match event {
                         Ok(event) => {
                             match event.kind  {
-                               EventKind::QuitEvent => run = false,
-                               EventKind::GnssPositionEvent(pos) => self.update_position(&pos),
+                               EventKind::QuitEvent => {
+                                   run = false
+                               },
+                               EventKind::GnssPositionEvent(pos) => {
+                                   self.update_position(&pos)
+                               },
+                               EventKind::DetectTrackResponseEvent(track) => {
+                                   if !track.data.is_empty() {
+                                       self.track = Some(track.data[0].clone());
+                                       self.calculate_laptimer_state();
+                                   }
+                               }
                                 _ => (),
                             }
                         },
@@ -225,6 +255,3 @@ impl<T: ElapsedTimeSource + Default + Send> Module for SimpleLaptimer<T> {
         Ok(())
     }
 }
-
-// #[cfg(test)]
-// mod tests;

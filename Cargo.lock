@@ -404,6 +404,7 @@ dependencies = [
  "common",
  "module_core",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
