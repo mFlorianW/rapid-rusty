@@ -1,6 +1,6 @@
 use crate::{position::GnssPosition, serde::duration_list};
-use chrono::Duration;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 /// Represents a single completed lap, including timing and telemetry data.
 ///
@@ -19,12 +19,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// ```rust
 /// use common::{lap::Lap, position::GnssPosition};
-/// use chrono::Duration;
+/// use std::time::Duration;
 ///
 /// let lap = Lap {
 ///     sectors: vec![
-///         Duration::seconds(25),
-///         Duration::seconds(24),
+///         Duration::from_secs(25),
+///         Duration::from_secs(24),
 ///     ],
 ///     log_points: vec![/* LogPoint instances */],
 /// };
@@ -49,16 +49,16 @@ impl Lap {
     /// # Example
     ///
     /// ```rust
-    /// use chrono::Duration;
+    /// use std::time::Duration;
     /// use common::{lap::Lap, position::GnssPosition};
     ///
     /// let lap = Lap {
-    ///     sectors: vec![Duration::seconds(30), Duration::seconds(32)],
+    ///     sectors: vec![Duration::from_secs(30), Duration::from_secs(32)],
     ///     log_points: vec![]
     /// };
     ///
     /// let total = lap.laptime();
-    /// assert_eq!(total, Duration::seconds(62));
+    /// assert_eq!(total, Duration::from_secs(62));
     /// ```
     ///
     /// # Panics
@@ -67,7 +67,7 @@ impl Lap {
     /// If you're using `std::time::Duration::new`, it doesn't return `Result`, so
     /// you likely meant `chrono::Duration::zero()` instead.
     pub fn laptime(self) -> Duration {
-        let mut laptime = Duration::zero();
+        let mut laptime = Duration::default();
         for sector in self.sectors {
             laptime += sector;
         }

@@ -1,11 +1,12 @@
-use chrono::{Duration, NaiveTime, Timelike};
+use chrono::{NaiveTime, Timelike};
 use serde::{self, Deserialize, Deserializer, Serializer};
+use std::time::Duration;
 
 const FORMAT: &str = "%H:%M:%S%.3f";
 
 pub fn duration_to_string<S: Serializer>(duration: &Duration) -> Result<String, S::Error> {
-    let total_seconds = duration.num_seconds();
-    let nanos = (duration.num_nanoseconds().unwrap_or(0) % 1_000_000_000) as u32;
+    let total_seconds = duration.as_secs_f64();
+    let nanos = (duration.as_nanos() % 1_000_000_000) as u32;
 
     let time = NaiveTime::from_num_seconds_from_midnight_opt(total_seconds as u32, nanos)
         .ok_or_else(|| serde::ser::Error::custom("Invalid duration for NaiveTime"))?;
@@ -31,8 +32,8 @@ where
     let time = NaiveTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)?;
 
     let total_seconds =
-        (time.hour() as i64 * 3600) + (time.minute() as i64 * 60) + time.second() as i64;
-    let nanos = time.nanosecond() as i64;
+        (time.hour() as u64 * 3600) + (time.minute() as u64 * 60) + time.second() as u64;
+    let nanos = time.nanosecond() as u64;
 
-    Ok(Duration::seconds(total_seconds) + Duration::nanoseconds(nanos))
+    Ok(Duration::from_secs(total_seconds) + Duration::from_nanos(nanos))
 }

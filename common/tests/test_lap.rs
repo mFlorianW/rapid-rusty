@@ -1,11 +1,11 @@
-use std::str::FromStr;
-
-use chrono::{Duration, NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveTime};
 use common::{lap::Lap, position::GnssPosition};
+use std::str::FromStr;
+use std::time::Duration;
 
 #[test]
 fn calculate_laptime_with_one_sector() {
-    let exp_time = Duration::new(90, 0).unwrap();
+    let exp_time = Duration::new(90, 0);
     let lap = Lap {
         sectors: vec![exp_time],
         log_points: vec![],
@@ -18,8 +18,8 @@ fn calculate_laptime_with_one_sector() {
 
 #[test]
 fn calculate_laptime_with_multiple_sectors() {
-    let sec_time = Duration::new(90, 0).unwrap();
-    let lap_time = Duration::new(270, 0).unwrap();
+    let sec_time = Duration::new(90, 0);
+    let lap_time = Duration::new(270, 0);
     let lap = Lap {
         sectors: vec![sec_time, sec_time, sec_time],
         log_points: vec![],
@@ -59,7 +59,7 @@ fn get_lap_as_json<'a>() -> &'a str {
 }
 
 fn get_lap() -> Lap {
-    let time = Duration::new(25, 0).unwrap();
+    let time = Duration::new(25, 0);
     let log_point = GnssPosition::new(
         52.0,
         11.0,
