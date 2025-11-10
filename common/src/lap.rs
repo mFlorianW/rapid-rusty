@@ -29,7 +29,7 @@ use std::time::Duration;
 ///     log_points: vec![/* LogPoint instances */],
 /// };
 /// ```
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Lap {
     #[serde(with = "duration_list")]
     pub sectors: Vec<Duration>,
