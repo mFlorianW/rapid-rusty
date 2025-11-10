@@ -83,7 +83,7 @@ pub type EmptyRequestPtr = Arc<Request<()>>;
 pub type StoredSessionIdsResponsePtr = Arc<Response<Arc<Vec<String>>>>;
 
 /// A thread-safe, shared pointer to a save session request.
-pub type SaveSessionRequestPtr = Arc<Request<RwLock<Session>>>;
+pub type SaveSessionRequestPtr = Arc<Request<Arc<RwLock<Session>>>>;
 
 /// A thread-safe, shared pointer to a save session response.
 pub type SaveSessionResponsePtr = Arc<Response<Result<String, ErrorKind>>>;
@@ -92,7 +92,7 @@ pub type SaveSessionResponsePtr = Arc<Response<Result<String, ErrorKind>>>;
 pub type LoadSessionRequestPtr = Arc<Request<String>>;
 
 /// A thread-safe, shared pointer to a load session response.
-pub type LoadSessionResponsePtr = Arc<Response<Result<RwLock<Session>, ErrorKind>>>;
+pub type LoadSessionResponsePtr = Arc<Response<Result<Arc<RwLock<Session>>, ErrorKind>>>;
 
 /// A thread-safe, shared pointer to a delete session request.
 pub type DeleteSessionRequestPtr = Arc<Request<String>>;

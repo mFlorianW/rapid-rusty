@@ -5,7 +5,10 @@ use module_core::{
     SaveSessionRequestPtr, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
-use std::fs::create_dir;
+use std::{
+    fs::create_dir,
+    sync::{Arc, RwLock},
+};
 use std::{os::unix::fs::MetadataExt, time::Duration};
 
 mod helper;
@@ -116,7 +119,7 @@ pub async fn save_load_not_existing_session() {
         kind: EventKind::SaveSessionRequestEvent(SaveSessionRequestPtr::new(Request {
             id: 11,
             sender_addr: 20,
-            data: get_session().into(),
+            data: Arc::new(RwLock::new(get_session())),
         })),
     });
     let save_resp = wait_for_event(
@@ -211,7 +214,7 @@ pub async fn update_existing_session() {
             Request {
                 id: 10,
                 sender_addr: 20,
-                data: get_session().into(),
+                data: Arc::new(RwLock::new(get_session())),
             }
             .into(),
         ),
