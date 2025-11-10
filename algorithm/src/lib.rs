@@ -1,6 +1,7 @@
 use common::position::Position;
 use common::track::Track;
 use core::f64;
+use tracing::debug;
 
 /// Returns a list of references to tracks whose start line is within a specified detection radius of a given position.
 ///
@@ -25,6 +26,7 @@ pub fn is_on_track<'a>(
         if distance <= detection_radius as f64 {
             detected_tracks.push(track);
         }
+        debug!("Track: {}, Distance: {}", track.name, distance);
     }
     detected_tracks
 }
