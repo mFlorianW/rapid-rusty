@@ -6,7 +6,7 @@ use module_core::{
     TrackDetectionResponsePtr,
 };
 use std::{collections::VecDeque, result::Result};
-use tracing::error;
+use tracing::{error, info};
 
 /// The `TrackDetection` module is responsible for detecting which tracks
 /// the system is currently located on, based on GNSS position updates and
@@ -60,6 +60,10 @@ impl TrackDetection {
                     data: detected_tracks.clone(),
                 }));
             let _ = self.ctx.sender.send(Event { kind: response });
+            info!(
+                "Sent track detection response for request id {}, receiver id {}",
+                request.id, request.sender_addr
+            );
         }
     }
 }
@@ -101,6 +105,7 @@ impl Module for TrackDetection {
                                     self.handle_pending_requests();
                                 }
                                 EventKind::DetectTrackRequestEvent(request) => {
+                                    info!("Received track detection request. id: {}, sender id: {}", request.id, request.sender_addr);
                                     self.pending_requests.push_back(request);
                                     self.handle_pending_requests();
                                 }
