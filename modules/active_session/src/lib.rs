@@ -106,7 +106,6 @@ impl Module for ActiveSession {
                             match event.kind {
                                 EventKind::QuitEvent => run = false,
                                 EventKind::DetectTrackResponseEvent(response) => {
-                                    debug!("Track Detected Event received in ActiveSession module");
                                     self.on_track_detected(response);
                                 },
                                 EventKind::LapStartedEvent => {
