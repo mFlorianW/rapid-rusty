@@ -5,7 +5,7 @@ use core::f64;
 use module_core::{Event, EventKind, Module, ModuleCtx, Request};
 use std::collections::VecDeque;
 use std::time::Duration;
-use tracing::error;
+use tracing::{error, info};
 
 /// Represents status updates emitted by the lap timer.
 ///
@@ -236,12 +236,13 @@ impl<T: ElapsedTimeSource + Default + Send> Module for SimpleLaptimer<T> {
                                    run = false
                                },
                                EventKind::GnssPositionEvent(pos) => {
-                                   self.update_position(&pos)
+                                   self.update_position(&pos);
                                },
                                EventKind::DetectTrackResponseEvent(track) => {
-                                   if !track.data.is_empty() {
+                                   if !track.data.is_empty() && track.id == 10  && track.receiver_addr == 22 {
                                        self.track = Some(track.data[0].clone());
                                        self.calculate_laptimer_state();
+                                       info!("Track configured for Track {}", self.track.as_ref().unwrap().name);
                                    }
                                }
                                 _ => (),
