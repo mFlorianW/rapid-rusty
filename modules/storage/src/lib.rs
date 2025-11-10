@@ -19,7 +19,7 @@ use tokio::{
     fs::read_dir,
     io::{AsyncReadExt, AsyncWriteExt},
 };
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 /// A file system–based implementation of a storage.
 ///
@@ -52,6 +52,14 @@ impl FilesSystemStorage {
                 e
             );
         }
+        info!(
+            "Using session storage folder: {}",
+            session_file_path.to_string_lossy()
+        );
+        info!(
+            "Using track storage folder: {}",
+            track_file_path.to_string_lossy()
+        );
         FilesSystemStorage {
             session_root_dir: session_file_path.to_string_lossy().to_string(),
             track_root_dir: track_file_path.to_string_lossy().to_string(),
