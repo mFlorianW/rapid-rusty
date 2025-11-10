@@ -1,5 +1,5 @@
 [package]
-name = "session"
+name = "active_session"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,4 +9,5 @@ module_core.workspace = true
 tracing.workspace = true
 test-log.workspace = true
 tokio.workspace = true
-
+async-trait.workspace = true
+chrono.workspace = true
