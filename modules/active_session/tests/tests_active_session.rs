@@ -16,7 +16,7 @@ fn create_module(eb: &EventBus) -> tokio::task::JoinHandle<Result<(), ()>> {
             kind: EventKind::DetectTrackResponseEvent(
                 Response {
                     id: 10,
-                    receiver_addr: 22,
+                    receiver_addr: 100,
                     data: vec![get_track()],
                 }
                 .into(),
