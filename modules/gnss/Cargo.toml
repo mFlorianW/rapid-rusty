@@ -6,9 +6,9 @@ edition = "2024"
 [dependencies]
 common = { workspace = true }
 module_core = {workspace = true}
+tokio.workspace = true
 
 gpsd_proto = "1.0.0"
-tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util"] }
 tokio-util = { version = "~0.7", features = ["codec"] }
 futures = "0.3"
 serde = "~1.0"

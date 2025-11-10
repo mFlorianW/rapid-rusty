@@ -4,16 +4,21 @@ members = [
     "algorithm",
     "common",
     "module_core",
-    "modules/*"
+    "modules/*",
+    "rapid_headless",
 ]
 
 [workspace.dependencies]
-gnss = { path = "gnss" }
 common = { path = "common" }
 module_core = { path = "module_core" }
 algorithm = { path = "algorithm" }
+active_session = { path = "modules/active_session" }
+storage = { path = "modules/storage" }
+laptimer = { path = "modules/laptimer" }
+gnss = { path = "modules/gnss" }
+track-detection = { path = "modules/track_detection" }
 
-tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util", "fs"] }
+tokio = { version = "~1.44", features = ["rt-multi-thread", "time", "sync", "macros", "net", "io-util", "fs"] }
 tokio-util = { version = "~0.7", features = ["codec"] }
 futures = "0.3"
 async-trait = "~0.1"

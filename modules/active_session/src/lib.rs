@@ -24,6 +24,9 @@ impl ActiveSession {
     }
 
     fn on_track_detected(&mut self, track_request: TrackDetectionResponsePtr) {
+        if track_request.id != 10 || track_request.receiver_addr != 100 {
+            return;
+        }
         let track = match track_request.data.first() {
             Some(t) => t.clone(),
             None => return, // TODO! send here a new request.
@@ -88,7 +91,7 @@ impl Module for ActiveSession {
             kind: EventKind::DetectTrackRequestEvent(
                 Request {
                     id: 10,
-                    sender_addr: 20,
+                    sender_addr: 100,
                     data: (),
                 }
                 .into(),
@@ -103,7 +106,6 @@ impl Module for ActiveSession {
                             match event.kind {
                                 EventKind::QuitEvent => run = false,
                                 EventKind::DetectTrackResponseEvent(response) => {
-                                    debug!("Track Detected Event received in ActiveSession module");
                                     self.on_track_detected(response);
                                 },
                                 EventKind::LapStartedEvent => {

@@ -8,8 +8,8 @@ common = { workspace = true }
 module_core = { workspace = true }
 tracing = { workspace = true }
 test-log.workspace =  true
+tokio.workspace = true
 
-tokio = { version = "~1.44", features = ["rt", "time", "sync", "macros", "net", "io-util", "fs"] }
 tokio-util = { version = "~0.7", features = ["codec"] }
 futures = "0.3"
 utm = "0.1.6"

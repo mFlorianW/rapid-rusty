@@ -48,6 +48,7 @@ dependencies = [
  "common",
  "module_core",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -555,6 +556,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rapid_headless"
+version = "0.1.0"
+dependencies = [
+ "active_session",
+ "gnss",
+ "laptimer",
+ "module_core",
+ "storage",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "track-detection",
+]
+
+[[package]]
 name = "regex-automata"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,6 +660,12 @@ checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "smallvec"
+version = "1.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "socket2"
@@ -824,6 +846,7 @@ dependencies = [
  "once_cell",
  "regex-automata",
  "sharded-slab",
+ "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
