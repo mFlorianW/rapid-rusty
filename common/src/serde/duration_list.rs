@@ -1,9 +1,9 @@
 use crate::serde::duration;
-use chrono::Duration;
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{self, Deserializer, Serializer};
 use std::fmt;
+use std::time::Duration;
 
 pub fn serialize<S>(durations: &Vec<Duration>, serializer: S) -> Result<S::Ok, S::Error>
 where

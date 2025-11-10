@@ -13,7 +13,7 @@ use std::{
     fs::{DirBuilder, exists},
     io::{self},
     path::{Path, PathBuf},
-    sync::RwLock,
+    sync::{Arc, RwLock},
 };
 use tokio::{
     fs::read_dir,
@@ -174,7 +174,7 @@ impl FilesSystemStorage {
         {
             Ok(session) => {
                 debug!("Load session with filename {}", file_path);
-                Ok(RwLock::new(session))
+                Ok(Arc::new(RwLock::new(session)))
             }
             Err(e) => {
                 debug!(

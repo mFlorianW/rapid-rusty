@@ -4,8 +4,9 @@ use crate::{
     session::Session,
     track::Track,
 };
-use chrono::{Duration, NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveTime};
 use std::str::FromStr;
+use std::time::Duration;
 
 pub fn get_session_as_json<'a>() -> &'a str {
     r#"
@@ -65,7 +66,7 @@ pub fn get_session_as_json<'a>() -> &'a str {
 }
 
 pub fn get_session() -> Session {
-    let time = Duration::new(25, 144000000).unwrap();
+    let time = Duration::new(25, 144000000);
     let log_point = GnssPosition::new(
         52.0,
         11.0,
