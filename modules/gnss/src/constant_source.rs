@@ -29,9 +29,8 @@ struct UtmPoint {
 impl ConstantGnssPositionSourceRuntime {
     async fn handle_tick(&mut self) {
         if self.next_position > 0 && self.next_position <= self.points.len() {
-            println!("point: {:?}", self.current_position);
             let p0 = &self.points[self.next_position];
-            let direction = UtmPoint {
+            let mut direction = UtmPoint {
                 x: p0.x - self.current_position.x,
                 y: p0.y - self.current_position.y,
                 zone: 0,
@@ -53,9 +52,10 @@ impl ConstantGnssPositionSourceRuntime {
             };
             self.current_position.x += distance_traveled.x;
             self.current_position.y += distance_traveled.y;
-            let new_length = (self.current_position.x * self.current_position.x
-                + self.current_position.y * self.current_position.y)
-                .sqrt();
+
+            direction.x = p0.x - self.current_position.x;
+            direction.y = p0.y - self.current_position.y;
+            let new_length = (direction.x * direction.x + direction.y * direction.y).sqrt();
             if new_length > length {
                 self.next_position += 2;
                 if self.next_position >= self.points.len() {
@@ -67,8 +67,6 @@ impl ConstantGnssPositionSourceRuntime {
         } else {
             self.next_position = 0;
         }
-
-        println!("point: {:?}", self.current_position);
 
         let Ok((lat, long)) = wsg84_utm_to_lat_lon(
             self.current_position.y,
