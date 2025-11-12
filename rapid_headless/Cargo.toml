@@ -12,5 +12,8 @@ storage.workspace = true
 laptimer.workspace = true
 track-detection.workspace = true
 tracing.workspace = true
+common.workspace = true
 
 tracing-subscriber = { version = "~0.3" }
+clap = { version = "~4.5", features = ["derive"] }
+csv = { version = "~1.4" }
