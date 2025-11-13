@@ -40,7 +40,7 @@ pub struct FilesSystemStorage {
 }
 
 impl FilesSystemStorage {
-    pub fn new(root_dir: String, ctx: ModuleCtx) -> Self {
+    pub fn new(root_dir: &PathBuf, ctx: ModuleCtx) -> Self {
         let mut session_file_path = std::path::PathBuf::from(&root_dir);
         session_file_path.push("session");
         let mut track_file_path = PathBuf::from(&root_dir);

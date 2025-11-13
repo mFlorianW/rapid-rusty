@@ -1,5 +1,6 @@
 use active_session::ActiveSession;
 use clap::{CommandFactory, Parser};
+use dirs::data_local_dir;
 use gnss::{constant_source::ConstantGnssModule, gpsd_source::GpsdModule};
 use laptimer::SimpleLaptimer;
 use module_core::{EventBus, Module};
@@ -62,6 +63,14 @@ fn create_fake_gps_module(eb: &EventBus, cli: &Cli) -> Result<Box<dyn Module>, (
     }
 }
 
+fn get_storage_dir() -> Result<std::path::PathBuf, ()> {
+    let mut storage_dir = data_local_dir().ok_or_else(|| {
+        error!("Could not determine local data directory");
+    })?;
+    storage_dir.push("rapid");
+    Ok(storage_dir)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ()> {
     let cli = Cli::parse();
@@ -69,6 +78,7 @@ async fn main() -> Result<(), ()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    let storage_dir = get_storage_dir()?;
     let eb = EventBus::default();
     let mut gpsd: Box<dyn Module> = if cli.gpsd {
         get_gpsd_module(&eb).await?
@@ -79,7 +89,7 @@ async fn main() -> Result<(), ()> {
         Cli::command().print_help().unwrap();
         return Err(());
     };
-    let mut storage = FilesSystemStorage::new("/tmp/".to_owned(), eb.context());
+    let mut storage = FilesSystemStorage::new(&storage_dir, eb.context());
     let mut laptimer = SimpleLaptimer::new(eb.context());
     let mut track_detection = TrackDetection::new(eb.context());
     let mut active_session = ActiveSession::new(eb.context());
