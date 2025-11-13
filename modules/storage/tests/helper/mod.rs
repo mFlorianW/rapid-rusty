@@ -1,4 +1,5 @@
 use module_core::{EventBus, Module};
+use std::path::PathBuf;
 use storage::*;
 use tokio::task::JoinHandle;
 
@@ -18,9 +19,9 @@ pub fn setup_empty_test_folder(folder_name: &str) {
 
 pub fn create_storage_module(folder: &str, event_bus: &EventBus) -> JoinHandle<Result<(), ()>> {
     let ctx = event_bus.context();
-    let folder = get_path(folder);
+    let folder = PathBuf::from(get_path(folder));
     tokio::spawn(async move {
-        let mut storage = FilesSystemStorage::new(folder, ctx);
+        let mut storage = FilesSystemStorage::new(&folder, ctx);
         storage.run().await
     })
 }
