@@ -8,6 +8,10 @@ members = [
     "rapid_headless",
 ]
 
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+
 [workspace.dependencies]
 common = { path = "common" }
 module_core = { path = "module_core" }
