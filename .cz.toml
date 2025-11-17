@@ -1,0 +1,8 @@
+[tool.commitizen]
+tag_format = "$version"
+version_scheme = "semver"
+version_provider = "cargo"
+update_changelog_on_bump = true
+major_version_zero = true
+incremental_changelog = true
+changelog_file = "CHANGELOG.md"
