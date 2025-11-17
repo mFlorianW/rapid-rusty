@@ -1,0 +1,12 @@
+[package]
+name = "rest"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+module_core.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+
+rocket = "~0.5"
