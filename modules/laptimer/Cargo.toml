@@ -9,6 +9,7 @@ module_core = { workspace =true }
 algorithm = { workspace =true }
 tracing = { workspace =true }
 tokio.workspace = true
+test-log = { workspace =true }
 
 chrono = { version = "~0.4" }
 async-trait = "~0.1"

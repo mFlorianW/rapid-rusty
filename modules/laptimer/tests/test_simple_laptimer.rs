@@ -50,6 +50,7 @@ where
 }
 
 #[tokio::test]
+#[test_log::test]
 pub async fn drive_whole_map_with_sectors() {
     let event_bus = EventBus::default();
     let elapsed_time_source = ElapsedTestTimeSource::default();
