@@ -1,6 +1,6 @@
 [package]
 name = "active_session"
-version.workspace = true
+version = { workspace = true }
 edition.workspace = true
 
 [dependencies]

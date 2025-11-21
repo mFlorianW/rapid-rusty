@@ -1,6 +1,6 @@
 [package]
 name = "rapid_headless"
-version.workspace = true
+version = { workspace = true }
 edition.workspace = true
 
 [dependencies]
