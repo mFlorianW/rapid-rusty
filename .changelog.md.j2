@@ -1,0 +1,18 @@
+# Releases
+
+{% for entry in tree %}
+## Release Note {{ entry.version }}
+
+{% for change_key, changes in entry.changes.items() %}
+{% if change_key %}
+### {{ change_key }}
+{% endif %}
+{% for change in changes %}
+{% if change.parents|length == 1 and change.type != "bump" %}
+- {{ change.subject }}
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+
+{% endfor %}

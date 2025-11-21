@@ -1,11 +1,11 @@
 [package]
 name = "algorithm"
-version.workspace = true
+version = { workspace = true }
 edition.workspace = true
 
 [dependencies]
-common = { workspace =true }
-module_core = { workspace =true }
+common = { workspace = true }
+module_core = { workspace = true }
 tokio.workspace = true
 tracing.workspace = true
 

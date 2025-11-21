@@ -1,8 +1,87 @@
 [tool.commitizen]
-tag_format = "$version"
+name = "cz_customize"
+tag_format = "v$version"
 version_scheme = "semver"
 version_provider = "cargo"
 update_changelog_on_bump = true
+annotated_tag = true
+version_files = [
+    "CMakeLists.txt:VERSION"
+]
+legacy_tag_formats = [
+]
+ignored_tag_formats = [
+]
 major_version_zero = true
 incremental_changelog = true
-changelog_file = "CHANGELOG.md"
+changelog_file = "changelog.md"
+changelog_format = "markdown"
+template = ".changelog.md.j2"
+
+[tool.commitizen.customize]
+commit_parser = "^((?P<change_type>feat|fix|refactor|perf|build|chore|ci|docs|refactor|revert|style|test|BREAKING CHANGE)(?:\\((?P<scope>[^()\\r\\n]*)\\)|\\()?(?P<breaking>!)?|\\w+!):\\s(?P<subject>[^\\n]*)(?P<body>(?:\\n(?!Refs:|:\\s#)[^\\n]*)*)(?:\\n(?P<footer>(?:Refs:(?P<refs>[\\s\\S]*))?))?$"
+schema_pattern = "(BREAKING CHANGE|feat|fix|perf|refactor|docs|style|test|build|ci|chore|revert|bump)(\\(\\S*\\))?:([\\s\\S]*)"
+change_type_order = [
+    "BREAKING CHANGE",
+    "feat",
+    "fix",
+    "perf",
+    "refactor",
+    "docs",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "revert",
+]
+message_template = "{{change_type}}{% if scope|length > 0 %}({{scope}}){% endif %}: {{subject}}{% if body|length > 0 %}\n\n{{body}}{% endif %}{% if refs|length > 0 %}\n\nRefs:{{refs}}{% endif %}"
+[tool.commitizen.customize.change_type_map]
+"BREAKING CHANGE" = "Breaking Changes"
+"feat" = "Features"
+"fix" = "Bug Fixes"
+"perf" = "Performance Improvements"
+"refactor" = "Refactoring"
+"docs" = "Documentation"
+"test" = "Tests"
+"build"= "Build System"
+"ci" = "Continuous Integration"
+"chore" = "Housekeeping"
+"revert" = "Reverts"
+
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "change_type"
+choices = [
+    {value = "feat", name = "feature: A new feature."},
+    {value = "fix", name = "fix: A bug fix."},
+    {value = "perf", name = "perf: A performance change."},
+    {value = "refactor", name = "refactor: A refactoring change."},
+    {value = "docs", name = "docs: A Documentation change."},
+    {value = "style", name = "style: A style change."},
+    {value = "tests", name = "tests: A change only in the tests."},
+    {value = "build", name = "build: A change in the build system."},
+    {value = "ci", name = "ci: A change for the CI system."},
+    {value = "chore", name = "chore: A housekeeping change e.g. version bump."},
+    {value = "revert", name = "revert: Revert to a previous commit."},
+]
+message = "Select the type of change you are committing"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "scope"
+message = "Denote the scope of this change (e.g. component or file name):"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "subject"
+message = "Write a short, imperative description of the change:"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "body"
+message = "Provide a detailed description of the change (hit enter to skip):"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "refs"
+message = "Add related issues as comma separated list (e.g. closes #123, closes #124), (hit enter to skip):"

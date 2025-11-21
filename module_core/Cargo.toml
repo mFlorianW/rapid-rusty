@@ -1,6 +1,6 @@
 [package]
 name = "module_core"
-version.workspace = true
+version = { workspace = true }
 edition.workspace = true
 
 [dependencies]
