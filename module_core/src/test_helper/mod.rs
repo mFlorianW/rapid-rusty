@@ -1,6 +1,7 @@
 use crate::{Event, EventBus, EventKind, EventKindDiscriminants, ModuleCtx};
 use core::panic;
 use tokio::time::timeout;
+use tracing::debug;
 
 /// Sends a quit signal to a running module and waits for it to stop gracefully.
 ///
@@ -37,7 +38,7 @@ pub async fn stop_module(
     });
     let _ = timeout(std::time::Duration::from_millis(100), handle)
         .await
-        .expect("ConstantGnssSourceModule doesn't handle quit event in timeout")
+        .expect("Module doesn't handle quit event in timeout")
         .unwrap();
 }
 
@@ -98,6 +99,7 @@ pub async fn wait_for_event(
 ///
 /// When the handler is dropped, its background task is automatically aborted
 /// to prevent resource leaks or dangling tasks.
+#[derive(Debug)]
 pub struct ResponseHandler {
     handle: tokio::task::JoinHandle<()>,
 }
@@ -142,7 +144,9 @@ fn run(mut rt: ResponseHandlerRuntime) -> tokio::task::JoinHandle<()> {
                 event = rt.ctx.receiver.recv() =>
                 match event {
                     Ok(event) => {
+                        debug!("ResponseHandler received event {:?}", event);
                         if EventKindDiscriminants::from(event.kind) == rt.request_type {
+                            debug!("ResponseHandler sending response for request type {:?}", rt.request_type);
                             let _ = rt.ctx.sender.send(rt.resp.clone());
                         }
                     }
@@ -160,5 +164,6 @@ impl Drop for ResponseHandler {
     /// the handler goes out of scope
     fn drop(&mut self) {
         self.handle.abort();
+        debug!("ResponseHandler dropped and background task aborted.");
     }
 }
