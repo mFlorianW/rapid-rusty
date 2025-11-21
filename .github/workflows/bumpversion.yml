@@ -17,6 +17,8 @@ jobs:
           fetch-depth: 0
       - name: Create bump and changelog
         uses: commitizen-tools/commitizen-action@master
+        permissions:
+          contents: write
         with:
           github_token: ${{ secrets.Github_TOKEN }}
           changelog_increment_filename: body.md
