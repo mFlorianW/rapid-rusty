@@ -1,0 +1,65 @@
+# Releases
+
+## Release Note v0.1.0
+
+### Bug Fixes
+- calculation of the next point
+- Remove unused import from test_sessionfs_storage
+
+### Continuous Integration
+- for auto bumping use admin token
+- use correct syntax for permissions
+- give commitizen step content write acces
+- github action for automatic version bump
+- Introduce workflow for pr linting
+
+### Features
+- enable conventional commit check with commitizen
+- use xdg_data_dirs in filesystem storage
+- command line args for GNSS source
+- Oschersleben GPS positions for the ConstantGnssSource
+- introduce rapid_headless binary
+- Handle only matching track detection responses
+- handle only matching track detection responses
+- store lap in active session when finished
+- add new active session module
+- load track async in laptimer
+- new module for automatic track detection
+- introduce ResponseHandler
+- Introduce ResponseHandler
+- generate discriminants and use them unit tests
+- introduce load event for track ids
+- port to new module based architecture
+- add generic structs for request/response events
+- port simple laptimer to module architecture
+- Add events for laptimer module
+- Move to new module architecture
+- Introduce module_core The module_core defines the trait for modules and implements the event bus pattern for the communication between these modules
+
+### Housekeeping
+- add commitizen changelog template
+- use custom commitizen configuration
+- make package version compatible with commitizen cargo support
+- add pre-commit install documentation
+- add commitizen configuration file
+- use workspace version number
+- debug log for incoming requests and outgoing responses
+- log used file system directories
+- add debug log on detected track
+- use tokio as workspace dependency
+- use asset folder for tracks for testing
+- Move modules in own directory and tests in own directory
+- fix warnings in doc
+- Fix dead code warnings
+- remove unused imports
+- remove not needed use directives
+- push latest cargo lock file
+
+### Refactoring
+- make session in event shareable
+- defaul trait for lap
+- Use std::time::duration in lap
+- prepare support for track storage
+- better error reporting for events in tests
+
+
