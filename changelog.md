@@ -1,5 +1,13 @@
 # Releases
 
+## Release Note v0.3.0-dev19613284295
+
+### Housekeeping
+- set next development version
+- avoid duplicating changelog header
+
+
+
 ## Release Note v0.1.0-dev19611809463
 
 ### Documentation
