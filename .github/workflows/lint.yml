@@ -2,8 +2,7 @@ name: Lint
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [ main, dev ]
 
 permissions:
   checks: write
