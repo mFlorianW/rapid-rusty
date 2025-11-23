@@ -1,5 +1,10 @@
 use crate::{Event, EventBus, EventKind, EventKindDiscriminants, ModuleCtx};
 use core::panic;
+use std::{
+    collections::HashMap,
+    io::ErrorKind,
+    sync::{LazyLock, RwLock},
+};
 use tokio::time::timeout;
 use tracing::debug;
 
@@ -89,6 +94,82 @@ pub async fn wait_for_event(
     panic!("Failed to receive event of type {:?}", exp_event);
 }
 
+static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<EventKindDiscriminants, ResponseHandler>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+/// Registers a new automatic response handler for a given request event type.
+///
+/// When an incoming event whose discriminant matches `request_type` is received on `ctx`,
+/// the predefined `response_event` is sent back through the same context.
+///
+/// Arguments:
+/// * `request_type` - Discriminant of the request event to listen for.
+/// * `response_event` - Event to send when a matching request is observed.
+/// * `ctx` - Module context providing sender/receiver channels.
+///
+/// Returns:
+/// * `Ok(())` if the handler was successfully registered.
+/// * `Err` with `ErrorKind::AlreadyExists` if a handler for `request_type` is already present.
+///
+/// Side effects:
+/// * Spawns a background task (owned by `ResponseHandler`) and stores it in a global cache.
+pub fn register_response_event(
+    request_type: EventKindDiscriminants,
+    response_event: Event,
+    ctx: ModuleCtx,
+) -> Result<(), std::io::Error> {
+    if RESPONSE_HANDLERS_CACHE
+        .read()
+        .unwrap()
+        .contains_key(&request_type)
+    {
+        return Err(std::io::Error::new(
+            ErrorKind::AlreadyExists,
+            format!(
+                "Response handler for request type {:?} already exists",
+                request_type
+            ),
+        ));
+    }
+    let handler = ResponseHandler::new(ctx, request_type, response_event);
+    let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
+    cache.insert(request_type, handler);
+    debug!(
+        "Registered response handler for request type {:?}",
+        request_type
+    );
+    Ok(())
+}
+
+/// Unregisters (removes) a previously registered automatic response handler.
+///
+/// Arguments:
+/// * `request_type` - Discriminant of the request event whose handler should be removed.
+///
+/// Behavior:
+/// * If a handler exists, it is removed from the global cache and its background task is aborted.
+/// * If no handler exists for `request_type`, the function is a no-op.
+///
+/// Side effects:
+/// * Mutates the global `RESPONSE_HANDLERS_CACHE`.
+/// * Aborts the spawned task associated with the handler (if present).
+pub fn unregister_response_event(request_type: &EventKindDiscriminants) {
+    let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
+    if let Some(handler) = cache.remove(request_type) {
+        debug!(
+            "Unregistered response handler for request type {:?}",
+            request_type
+        );
+        handler.handle.abort();
+    }
+}
+
+struct ResponseHandlerRuntime {
+    pub resp: Event,
+    pub request_type: EventKindDiscriminants,
+    pub ctx: ModuleCtx,
+}
+
 /// Manages the automatic handling of asynchronous response events.
 ///
 /// The [`ResponseHandler`] spawns a background task that listens for incoming
@@ -100,14 +181,8 @@ pub async fn wait_for_event(
 /// When the handler is dropped, its background task is automatically aborted
 /// to prevent resource leaks or dangling tasks.
 #[derive(Debug)]
-pub struct ResponseHandler {
+struct ResponseHandler {
     handle: tokio::task::JoinHandle<()>,
-}
-
-struct ResponseHandlerRuntime {
-    pub resp: Event,
-    pub request_type: EventKindDiscriminants,
-    pub ctx: ModuleCtx,
 }
 
 impl ResponseHandler {
