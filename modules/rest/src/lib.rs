@@ -1,10 +1,15 @@
 use async_trait::async_trait;
+use common::session::Session;
 use module_core::{Event, EventKind, Module, ModuleCtx, Request};
 use rocket::{
     State,
     serde::{Serialize, json::Json},
 };
-use std::{env, net::Ipv4Addr, sync::Arc};
+use std::{
+    env,
+    net::Ipv4Addr,
+    sync::{Arc, RwLock},
+};
 use tokio::sync::Mutex;
 #[macro_use]
 extern crate rocket;
@@ -209,6 +214,107 @@ async fn get_session_ids(ctx: &State<Arc<Mutex<RestCtx>>>) -> Json<SessionIdsRes
     Json(resp)
 }
 
+/// Sends a request to load a session by its ID and waits for the response.
+///
+/// This asynchronous function sends a `LoadSessionRequestEvent` to the event bus using the provided context,
+/// then waits for the corresponding response. It returns the loaded session wrapped in an `Arc<RwLock<Session>>`
+/// on success, or an `std::io::ErrorKind` on failure.
+///
+/// # Arguments
+/// * `id` - The session ID to load.
+/// * `ctx` - Shared context containing the event sender and receiver.
+///
+/// # Returns
+/// * `Result<Arc<RwLock<Session>>, std::io::ErrorKind>` - The loaded session or an error.
+async fn request_session(
+    id: &str,
+    ctx: &Arc<Mutex<RestCtx>>,
+) -> Result<Arc<RwLock<Session>>, std::io::ErrorKind> {
+    let mut ctx_lock = ctx.lock().await;
+    let req_id = ctx_lock.request_id();
+    let _ = ctx_lock.ctx.sender.send(Event {
+        kind: EventKind::LoadSessionRequestEvent(
+            Request {
+                sender_addr: ctx_lock.module_addr,
+                id: req_id,
+                data: id.to_string(),
+            }
+            .into(),
+        ),
+    });
+    debug!("Sent LoadSessionRequestEvent with id {}", req_id);
+    drop(ctx_lock);
+    wait_for_session_response(req_id, ctx).await
+}
+
+/// Waits asynchronously for a session response event from the event bus.
+///
+/// This function listens for incoming events on the event receiver and returns the session data
+/// when a `LoadSessionResponseEvent` is received. If no such event is received, it returns an error.
+///
+/// # Arguments
+/// * `ctx` - Shared context containing the event receiver.
+///
+/// # Returns
+/// * `Result<Arc<RwLock<Session>>, std::io::ErrorKind>` - The loaded session or an error.
+async fn wait_for_session_response(
+    request_id: u64,
+    ctx: &Arc<Mutex<RestCtx>>,
+) -> Result<Arc<RwLock<Session>>, std::io::ErrorKind> {
+    let lock_guard = ctx.lock().await;
+    let mut receiver = lock_guard.ctx.receiver.resubscribe();
+    drop(lock_guard);
+    loop {
+        let event = receiver.recv().await;
+        match event {
+            Ok(event) => match event.kind {
+                EventKind::LoadSessionResponseEvent(response) => {
+                    if response.id == request_id {
+                        debug!(
+                            "Received LoadSessionResponseEvent for response id {}",
+                            response.id
+                        );
+                        return response.data.clone();
+                    }
+                }
+                _ => continue,
+            },
+            Err(e) => {
+                error!("Error while waiting for session response: {}", e);
+                continue;
+            }
+        }
+    }
+}
+
+/// Retrieves a session by its ID from the event bus.
+///
+/// This asynchronous REST API handler sends a request to load a session with the specified ID,
+/// then waits for the response. It returns the loaded session wrapped in an `Arc<RwLock<Session>>`
+/// on success, or an error if the session could not be retrieved.
+///
+/// # Arguments
+/// * `id` - The session ID to retrieve.
+/// * `ctx` - Shared context containing the event sender and receiver.
+///
+/// # Returns
+/// * `Result<Arc<RwLock<Session>>, std::io::ErrorKind>` - The loaded session or an error.
+#[get("/v1/sessions/<id>")]
+async fn get_session(id: &str, ctx: &State<Arc<Mutex<RestCtx>>>) -> Option<String> {
+    let session = request_session(id, ctx).await;
+    match &session {
+        Ok(session_lock) => {
+            let session_guard = match session_lock.read() {
+                Ok(guard) => guard,
+                Err(_) => return None,
+            };
+            let session_json = Session::to_json(&session_guard);
+            session_json.ok()
+        }
+        Err(_) => None,
+    }
+}
+
 /// The default port used for the REST server.
 static DEFAULT_PORT: u16 = 27015;
 
@@ -235,6 +341,7 @@ async fn launch_rest_server(
         .merge(("port", port))
         .merge(("log_level", "critical"))
         .merge(("cli_colors", false));
+
     rocket::custom(figment)
         .mount("/", rocket::routes![get_session_ids, get_session])
         .manage(ctx)
