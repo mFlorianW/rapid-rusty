@@ -3,7 +3,7 @@ use common::position::GnssPosition;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};
 use common::test_helper::track::get_track;
 use laptimer::*;
-use module_core::test_helper::{ResponseHandler, stop_module, wait_for_event};
+use module_core::test_helper::{register_response_event, stop_module, wait_for_event};
 use module_core::{
     Event, EventBus, EventKind, EventKindDiscriminants, Module, Response, payload_ref,
 };
@@ -25,8 +25,7 @@ fn create_laptimer<T>(
 where
     T: ElapsedTimeSource + Default + Send + 'static,
 {
-    let rsp_handler = ResponseHandler::new(
-        event_bus.context(),
+    if register_response_event(
         EventKindDiscriminants::DetectTrackRequestEvent,
         Event {
             kind: EventKind::DetectTrackResponseEvent(
@@ -38,12 +37,15 @@ where
                 .into(),
             ),
         },
-    );
+        event_bus.context(),
+    )
+    .is_err()
+    {
+        panic!("Failed to register DetectTrackResponseEvent");
+    }
 
     let lp = SimpleLaptimer::new_with_source(elapsed_time_source, event_bus.context());
-
     tokio::spawn(async move {
-        let _rsp_handler = rsp_handler;
         let mut laptimer = lp;
         laptimer.run().await
     })

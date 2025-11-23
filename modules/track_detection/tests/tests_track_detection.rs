@@ -2,10 +2,11 @@ use chrono::NaiveDate;
 use chrono::NaiveTime;
 use common::{position::GnssPosition, test_helper::track::get_track};
 use module_core::ModuleCtx;
+use module_core::test_helper::register_response_event;
 use module_core::{
     Event, EventBus, EventKind, EventKindDiscriminants, GnssPositionPtr, Module, Request, Response,
     payload_ref,
-    test_helper::{ResponseHandler, stop_module, wait_for_event},
+    test_helper::{stop_module, wait_for_event},
 };
 use std::time::Duration;
 use tokio::task::JoinHandle;
@@ -23,8 +24,7 @@ pub async fn handle_track_detection_request() {
     let event_bus = EventBus::default();
     let mut td = create_module(event_bus.context());
 
-    let _rsph = ResponseHandler::new(
-        event_bus.context(),
+    let _ = register_response_event(
         EventKindDiscriminants::LoadAllStoredTracksRequestEvent,
         Event {
             kind: EventKind::LoadAllStoredTracksResponseEvent(
@@ -36,7 +36,9 @@ pub async fn handle_track_detection_request() {
                 .into(),
             ),
         },
+        event_bus.context(),
     );
+
     event_bus.publish(&Event {
         kind: EventKind::DetectTrackRequestEvent(
             Request {

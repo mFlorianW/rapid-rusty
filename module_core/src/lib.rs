@@ -124,6 +124,7 @@ macro_rules! payload_ref {
 /// Enumerates the different kinds of events that can be emitted
 /// and transmitted via the [`EventBus`].
 #[derive(Clone, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(Hash))]
 pub enum EventKind {
     /// Indicates that a module shall terminate.
     QuitEvent,

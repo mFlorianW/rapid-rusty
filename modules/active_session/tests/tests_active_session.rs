@@ -2,15 +2,14 @@ use active_session::ActiveSession;
 use common::{lap::Lap, test_helper::track::get_track};
 use module_core::{
     Event, EventBus, EventKind, EventKindDiscriminants, Module, Response, payload_ref,
-    test_helper::{ResponseHandler, stop_module, wait_for_event},
+    test_helper::{register_response_event, stop_module, wait_for_event},
 };
 use std::time::Duration;
 use tracing::debug;
 
 fn create_module(eb: &EventBus) -> tokio::task::JoinHandle<Result<(), ()>> {
     let session = ActiveSession::new(eb.context());
-    let req_handler = ResponseHandler::new(
-        eb.context(),
+    if register_response_event(
         EventKindDiscriminants::DetectTrackRequestEvent,
         Event {
             kind: EventKind::DetectTrackResponseEvent(
@@ -22,10 +21,15 @@ fn create_module(eb: &EventBus) -> tokio::task::JoinHandle<Result<(), ()>> {
                 .into(),
             ),
         },
-    );
+        eb.context(),
+    )
+    .is_err()
+    {
+        panic!("Failed to register DetectTrackResponseEvent");
+    }
+
     tokio::spawn(async move {
         let mut session = session;
-        let _req_handler = req_handler;
         session.run().await
     })
 }

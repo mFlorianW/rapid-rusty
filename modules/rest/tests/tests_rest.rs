@@ -1,7 +1,7 @@
 use common::{session::Session, test_helper::session::get_session};
 use module_core::{
     Event, EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, Response,
-    test_helper::{ResponseHandler, stop_module},
+    test_helper::{register_response_event, stop_module},
 };
 use rest::Rest;
 use serial_test::serial;
@@ -22,8 +22,7 @@ async fn get_session_request_ids() {
     let eb = EventBus::default();
     let mut rest = create_module(eb.context());
     let expected_body = r#"{"total":2,"ids":["session_1","session_2"]}"#;
-    let _handler = ResponseHandler::new(
-        eb.context(),
+    if register_response_event(
         EventKindDiscriminants::LoadStoredSessionIdsRequestEvent,
         Event {
             kind: EventKind::LoadStoredSessionIdsResponseEvent(
@@ -35,7 +34,13 @@ async fn get_session_request_ids() {
                 .into(),
             ),
         },
-    );
+        eb.context(),
+    )
+    .is_err()
+    {
+        panic!("Failed to register LoadStoredSessionIdsResponseEvent");
+    }
+
     let body = reqwest::get("http://localhost:27015/v1/sessions")
         .await
         .unwrap()
@@ -53,8 +58,7 @@ async fn get_session_request_ids() {
 async fn request_session() {
     let eb = EventBus::default();
     let mut rest = create_module(eb.context());
-    let _handler = ResponseHandler::new(
-        eb.context(),
+    if register_response_event(
         EventKindDiscriminants::LoadSessionRequestEvent,
         Event {
             kind: EventKind::LoadSessionResponseEvent(
@@ -66,7 +70,12 @@ async fn request_session() {
                 .into(),
             ),
         },
-    );
+        eb.context(),
+    )
+    .is_err()
+    {
+        panic!("Failed to register LoadSessionResponseEvent");
+    }
 
     let body = reqwest::get("http://localhost:27015/v1/sessions/session_1")
         .await
