@@ -1,5 +1,42 @@
 # Releases
 
+## Release Note v0.3.0-dev19613284295
+
+### Housekeeping
+- set next development version
+- avoid duplicating changelog header
+
+
+
+## Release Note v0.1.0-dev19611809463
+
+### Documentation
+- document GET methods for the sessions resource
+
+### Features
+- SIGINT handler to correctly shutdown all modules
+- provide session as REST resource
+- REST interface for getting session ids
+- introduce REST module
+
+### Refactoring
+- enable logging for tests
+- debug log for in response handler
+
+
+
+## Release Note v0.1.0-dev19603282309
+
+### Continuous Integration
+- use correct branch for bumping dev release
+- enable linter action for the dev branch
+- new action for bumping dev releases
+- use correct body and tag name in bump release action
+- run build action for develop branch also
+- use correct variable name for the tag in auto bumping action
+
+
+
 ## Release Note v0.1.0
 
 ### Bug Fixes

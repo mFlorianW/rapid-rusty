@@ -3,7 +3,8 @@ use clap::{CommandFactory, Parser};
 use dirs::data_local_dir;
 use gnss::{constant_source::ConstantGnssModule, gpsd_source::GpsdModule};
 use laptimer::SimpleLaptimer;
-use module_core::{EventBus, Module};
+use module_core::{Event, EventBus, EventKind, Module};
+use rest::Rest;
 use std::str::FromStr;
 use std::time::Duration;
 use storage::FilesSystemStorage;
@@ -53,7 +54,7 @@ fn create_fake_gps_module(eb: &EventBus, cli: &Cli) -> Result<Box<dyn Module>, (
     if let Some(source_file) = &cli.gps_source_file {
         let positions = read_lap_points_from_file(source_file).unwrap();
         Ok(Box::new(
-            ConstantGnssModule::new(eb.context(), &positions, 10.0, Duration::from_secs(5))
+            ConstantGnssModule::new(eb.context(), &positions, 40.0, Duration::from_secs(5))
                 .unwrap(),
         ))
     } else {
@@ -80,6 +81,23 @@ async fn main() -> Result<(), ()> {
 
     let storage_dir = get_storage_dir()?;
     let eb = EventBus::default();
+
+    // setup ctrl-c handler
+    let ctx = eb.context();
+    match ctrlc::set_handler(move || {
+        info!("Received Ctrl-C, sending quit event to the modules...");
+        let _ = ctx.sender.send(Event {
+            kind: EventKind::QuitEvent,
+        });
+        info!("Sending event to the modules...");
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("Error setting Ctrl-C handler: {}", e);
+            return Err(());
+        }
+    }
+
     let mut gpsd: Box<dyn Module> = if cli.gpsd {
         get_gpsd_module(&eb).await?
     } else if cli.gps_fake {
@@ -93,6 +111,7 @@ async fn main() -> Result<(), ()> {
     let mut laptimer = SimpleLaptimer::new(eb.context());
     let mut track_detection = TrackDetection::new(eb.context());
     let mut active_session = ActiveSession::new(eb.context());
+    let mut rest = Rest::new(eb.context());
 
     info!("Starting modules...");
     tokio::join!(
@@ -100,7 +119,8 @@ async fn main() -> Result<(), ()> {
         gpsd.run(),
         track_detection.run(),
         laptimer.run(),
-        active_session.run()
+        active_session.run(),
+        rest.run()
     )
     .0
 }
