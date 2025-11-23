@@ -2,6 +2,25 @@
 
 # Releases
 
+# Releases
+
+## Release Note v0.1.0-dev19611809463
+
+### Documentation
+- document GET methods for the sessions resource
+
+### Features
+- SIGINT handler to correctly shutdown all modules
+- provide session as REST resource
+- REST interface for getting session ids
+- introduce REST module
+
+### Refactoring
+- enable logging for tests
+- debug log for in response handler
+
+
+
 ## Release Note v0.1.0-dev19603282309
 
 ### Continuous Integration
