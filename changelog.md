@@ -1,5 +1,19 @@
 # Releases
 
+# Releases
+
+## Release Note v0.1.0-dev19603282309
+
+### Continuous Integration
+- use correct branch for bumping dev release
+- enable linter action for the dev branch
+- new action for bumping dev releases
+- use correct body and tag name in bump release action
+- run build action for develop branch also
+- use correct variable name for the tag in auto bumping action
+
+
+
 ## Release Note v0.1.0
 
 ### Bug Fixes
