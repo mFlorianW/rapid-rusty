@@ -1,5 +1,15 @@
 # Releases
 
+## Release Note v0.3.1
+
+### Continuous Integration
+- stop dev branch experiment
+
+### Refactoring
+- refactor response handler in tests
+
+
+
 ## Release Note v0.3.0
 
 
