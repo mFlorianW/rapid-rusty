@@ -8,5 +8,9 @@ module_core.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 tokio.workspace = true
+test-log.workspace =  true
 
-rocket = "~0.5"
+rocket = { version = "~0.5", features = ["json"] }
+
+[dev-dependencies]
+reqwest = { version = "~0.12", features = ["json"] }

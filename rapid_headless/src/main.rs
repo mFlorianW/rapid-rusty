@@ -4,6 +4,7 @@ use dirs::data_local_dir;
 use gnss::{constant_source::ConstantGnssModule, gpsd_source::GpsdModule};
 use laptimer::SimpleLaptimer;
 use module_core::{EventBus, Module};
+use rest::Rest;
 use std::str::FromStr;
 use std::time::Duration;
 use storage::FilesSystemStorage;
@@ -93,6 +94,7 @@ async fn main() -> Result<(), ()> {
     let mut laptimer = SimpleLaptimer::new(eb.context());
     let mut track_detection = TrackDetection::new(eb.context());
     let mut active_session = ActiveSession::new(eb.context());
+    let mut rest = Rest::new(eb.context());
 
     info!("Starting modules...");
     tokio::join!(
@@ -100,7 +102,8 @@ async fn main() -> Result<(), ()> {
         gpsd.run(),
         track_detection.run(),
         laptimer.run(),
-        active_session.run()
+        active_session.run(),
+        rest.run()
     )
     .0
 }

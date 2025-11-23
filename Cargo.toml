@@ -21,6 +21,7 @@ storage = { path = "modules/storage" }
 laptimer = { path = "modules/laptimer" }
 gnss = { path = "modules/gnss" }
 track-detection = { path = "modules/track_detection" }
+rest = { path = "modules/rest" }
 
 tokio = { version = "~1.44", features = ["rt-multi-thread", "time", "sync", "macros", "net", "io-util", "fs"] }
 tokio-util = { version = "~0.7", features = ["codec"] }
