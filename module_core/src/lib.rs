@@ -40,6 +40,40 @@ pub struct Request<T = ()> {
     pub data: T,
 }
 
+impl<T> Request<T> {
+    /// Constructs a new `Request` with the given metadata and payload.
+    ///
+    /// - `id`: Correlation identifier used to match responses.
+    /// - `sender_addr`: Logical address of the sender.
+    /// - `data`: Payload carried by the request.
+    ///
+    /// Returns a `Request<T>` wrapping `data`.
+    pub fn new(id: u64, sender_addr: u64, data: T) -> Arc<Self> {
+        Arc::new(Request {
+            id,
+            sender_addr,
+            data,
+        })
+    }
+}
+
+impl Request {
+    /// Creates a request with an empty payload (`()`).
+    ///
+    /// Use for control or signal messages that only need a correlation `id` and the sender's address.
+    /// - `id`: Correlation identifier for the request.
+    /// - `sender_addr`: Logical address of the sender.
+    ///
+    /// Returns a `Request<()>` carrying no data.
+    pub fn empty_request(id: u64, sender_addr: u64) -> Arc<Self> {
+        Arc::new(Request {
+            id,
+            sender_addr,
+            data: (),
+        })
+    }
+}
+
 /// Represents a generic response message.
 ///
 /// # Fields
