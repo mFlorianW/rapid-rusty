@@ -296,6 +296,15 @@ pub struct ModuleCtx {
     pub receiver: tokio::sync::broadcast::Receiver<Event>,
 }
 
+impl Clone for ModuleCtx {
+    fn clone(&self) -> Self {
+        ModuleCtx {
+            sender: self.sender.clone(),
+            receiver: self.receiver.resubscribe(),
+        }
+    }
+}
+
 impl ModuleCtx {
     /// Constructs a new [`ModuleCtx`] from the given [`EventBus`].
     ///
