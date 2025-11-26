@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use common::session::Session;
-use module_core::{Event, EventKind, Module, ModuleCtx, Request};
+use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};
 use rocket::{
     State,
     serde::{Serialize, json::Json},
@@ -133,6 +133,7 @@ impl Module for Rest {
 async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
     let mut ctx_lock = ctx.lock().await;
     let req_id = ctx_lock.request_id();
+    let addr = ctx_lock.module_addr;
     let _ = ctx_lock.ctx.sender.send(Event {
         kind: EventKind::LoadStoredSessionIdsRequestEvent(
             Request {

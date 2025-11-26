@@ -1,6 +1,6 @@
 use common::{session::Session, test_helper::session::get_session};
 use module_core::{
-    Event, EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, Response,
+    Event, EventBus, EventKind, EventKindType, Module, ModuleCtx, Response,
     test_helper::{register_response_event, stop_module},
 };
 use rest::Rest;
@@ -23,7 +23,7 @@ async fn get_session_request_ids() {
     let mut rest = create_module(eb.context());
     let expected_body = r#"{"total":2,"ids":["session_1","session_2"]}"#;
     if register_response_event(
-        EventKindDiscriminants::LoadStoredSessionIdsRequestEvent,
+        EventKindType::LoadStoredSessionIdsRequestEvent,
         Event {
             kind: EventKind::LoadStoredSessionIdsResponseEvent(
                 Response {
@@ -59,7 +59,7 @@ async fn request_session() {
     let eb = EventBus::default();
     let mut rest = create_module(eb.context());
     if register_response_event(
-        EventKindDiscriminants::LoadSessionRequestEvent,
+        EventKindType::LoadSessionRequestEvent,
         Event {
             kind: EventKind::LoadSessionResponseEvent(
                 Response {

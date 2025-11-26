@@ -4,7 +4,7 @@ use common::{position::GnssPosition, test_helper::track::get_track};
 use module_core::ModuleCtx;
 use module_core::test_helper::register_response_event;
 use module_core::{
-    Event, EventBus, EventKind, EventKindDiscriminants, GnssPositionPtr, Module, Request, Response,
+    Event, EventBus, EventKind, EventKindType, GnssPositionPtr, Module, Request, Response,
     payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
@@ -25,7 +25,7 @@ pub async fn handle_track_detection_request() {
     let mut td = create_module(event_bus.context());
 
     let _ = register_response_event(
-        EventKindDiscriminants::LoadAllStoredTracksRequestEvent,
+        EventKindType::LoadAllStoredTracksRequestEvent,
         Event {
             kind: EventKind::LoadAllStoredTracksResponseEvent(
                 Response {
@@ -62,7 +62,7 @@ pub async fn handle_track_detection_request() {
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::DetectTrackResponseEvent,
+        EventKindType::DetectTrackResponseEvent,
     )
     .await;
 

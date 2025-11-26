@@ -1,8 +1,8 @@
 use common::test_helper::session::get_session;
 use core::panic;
 use module_core::{
-    EmptyRequestPtr, Event, EventBus, EventKind, EventKindDiscriminants, Request,
-    SaveSessionRequestPtr, payload_ref,
+    EmptyRequestPtr, Event, EventBus, EventKind, EventKindType, Request, SaveSessionRequestPtr,
+    payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{
@@ -94,7 +94,7 @@ pub async fn read_stored_session_ids() {
     let ids_event = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(100),
-        module_core::EventKindDiscriminants::LoadStoredSessionIdsResponseEvent,
+        module_core::EventKindType::LoadStoredSessionIdsResponseEvent,
     )
     .await;
     let payload =
@@ -125,7 +125,7 @@ pub async fn save_load_not_existing_session() {
     let save_resp = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(100),
-        module_core::EventKindDiscriminants::SaveSessionResponseEvent,
+        module_core::EventKindType::SaveSessionResponseEvent,
     )
     .await;
     let save_resp_payload =
@@ -148,7 +148,7 @@ pub async fn save_load_not_existing_session() {
     let load_resp = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::LoadSessionResponseEvent,
+        EventKindType::LoadSessionResponseEvent,
     )
     .await;
 
@@ -184,7 +184,7 @@ pub async fn delete_existing_session() {
     let delete_resp = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::DeleteSessionResponseEvent,
+        EventKindType::DeleteSessionResponseEvent,
     )
     .await;
     let delete_payload =

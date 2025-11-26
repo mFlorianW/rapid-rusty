@@ -3,7 +3,7 @@ use common::position::{GnssInformation, GnssPosition, GnssStatus};
 use core::panic;
 use gnss::gpsd_source::GpsdModule;
 use module_core::{
-    EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, payload_ref,
+    EventBus, EventKind, EventKindType, Module, ModuleCtx, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{io::Error, str::FromStr, time::Duration};
@@ -114,7 +114,7 @@ async fn notify_gnss_position() {
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        EventKindDiscriminants::GnssPositionEvent,
+        EventKindType::GnssPositionEvent,
     )
     .await;
     assert_eq!(
@@ -137,7 +137,7 @@ async fn notify_gnss_information_on_fix_change() {
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        EventKindDiscriminants::GnssInformationEvent,
+        EventKindType::GnssInformationEvent,
     )
     .await;
     assert_eq!(
@@ -179,7 +179,7 @@ async fn notify_gnss_information_on_sky_change() {
     let event = wait_for_event(
         &mut event_bus.subscribe(),
         Duration::from_millis(TIMEOUT_MS.into()),
-        EventKindDiscriminants::GnssInformationEvent,
+        EventKindType::GnssInformationEvent,
     )
     .await;
     assert_eq!(

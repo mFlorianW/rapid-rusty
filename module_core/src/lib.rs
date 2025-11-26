@@ -16,8 +16,12 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn kind_discriminant(&self) -> std::mem::Discriminant<EventKind> {
-        std::mem::discriminant(&self.kind)
+    /// Returns the high-level type of this event.
+    ///
+    /// This converts the event's specific `kind` into an `EventKindType`,
+    /// which is useful for grouping or filtering events by category.
+    pub fn event_type(&self) -> EventKindType {
+        EventKindType::from(&self.kind)
     }
 }
 
@@ -159,6 +163,7 @@ macro_rules! payload_ref {
 /// and transmitted via the [`EventBus`].
 #[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(Hash))]
+#[strum_discriminants(name(EventKindType))]
 pub enum EventKind {
     /// Indicates that a module shall terminate.
     QuitEvent,

@@ -1,6 +1,6 @@
 use common::track::Track;
 use module_core::{
-    EmptyRequestPtr, Event, EventBus, EventKind, EventKindDiscriminants, Request, payload_ref,
+    EmptyRequestPtr, Event, EventBus, EventKind, EventKindType, Request, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 use std::{
@@ -70,7 +70,7 @@ pub async fn load_stored_track_ids() {
     let load_stored_event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::LoadStoredTrackIdsResponseEvent,
+        EventKindType::LoadStoredTrackIdsResponseEvent,
     )
     .await;
 
@@ -113,7 +113,7 @@ pub async fn read_stored_session_ids() {
     let event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::LoadAllStoredTracksResponseEvent,
+        EventKindType::LoadAllStoredTracksResponseEvent,
     )
     .await;
 

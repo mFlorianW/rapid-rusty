@@ -4,9 +4,7 @@ use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_e
 use common::test_helper::track::get_track;
 use laptimer::*;
 use module_core::test_helper::{register_response_event, stop_module, wait_for_event};
-use module_core::{
-    Event, EventBus, EventKind, EventKindDiscriminants, Module, Response, payload_ref,
-};
+use module_core::{Event, EventBus, EventKind, EventKindType, Module, Response, payload_ref};
 use std::sync::Arc;
 use std::time::Duration;
 mod util;
@@ -26,7 +24,7 @@ where
     T: ElapsedTimeSource + Default + Send + 'static,
 {
     if register_response_event(
-        EventKindDiscriminants::DetectTrackRequestEvent,
+        EventKindType::DetectTrackRequestEvent,
         Event {
             kind: EventKind::DetectTrackResponseEvent(
                 Response {
@@ -68,12 +66,12 @@ pub async fn drive_whole_map_with_sectors() {
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            EventKindDiscriminants::LapStartedEvent,
+            EventKindType::LapStartedEvent,
         )
         .await;
         assert_eq!(
-            EventKindDiscriminants::from(event.kind),
-            EventKindDiscriminants::LapStartedEvent
+            EventKindType::from(event.kind),
+            EventKindType::LapStartedEvent
         );
     }
 
@@ -90,7 +88,7 @@ pub async fn drive_whole_map_with_sectors() {
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            EventKindDiscriminants::SectorFinshedEvent,
+            EventKindType::SectorFinshedEvent,
         )
         .await;
         assert_eq!(
@@ -112,7 +110,7 @@ pub async fn drive_whole_map_with_sectors() {
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            EventKindDiscriminants::SectorFinshedEvent,
+            EventKindType::SectorFinshedEvent,
         )
         .await;
         assert_eq!(
@@ -136,19 +134,19 @@ pub async fn drive_whole_map_with_sectors() {
         let sector_finished_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            EventKindDiscriminants::SectorFinshedEvent,
+            EventKindType::SectorFinshedEvent,
         );
         let mut receiver = event_bus.subscribe();
         let lap_finished_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            EventKindDiscriminants::LapFinishedEvent,
+            EventKindType::LapFinishedEvent,
         );
         let mut receiver = event_bus.subscribe();
         let lap_started_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            EventKindDiscriminants::LapStartedEvent,
+            EventKindType::LapStartedEvent,
         );
         let (sector_finished_event, lap_finished_event, lap_started_event) =
             tokio::join!(sector_finished_event, lap_finished_event, lap_started_event);
@@ -161,8 +159,8 @@ pub async fn drive_whole_map_with_sectors() {
             std::time::Duration::new(30, 390000000)
         );
         assert_eq!(
-            EventKindDiscriminants::from(lap_started_event.kind),
-            EventKindDiscriminants::LapStartedEvent
+            EventKindType::from(lap_started_event.kind),
+            EventKindType::LapStartedEvent
         );
     }
 

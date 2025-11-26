@@ -1,4 +1,4 @@
-use crate::{Event, EventBus, EventKind, EventKindDiscriminants, ModuleCtx};
+use crate::{Event, EventBus, EventKind, EventKindType, ModuleCtx};
 use core::panic;
 use std::{
     collections::HashMap,
@@ -80,13 +80,13 @@ pub async fn stop_module(
 pub async fn wait_for_event(
     rx: &mut tokio::sync::broadcast::Receiver<Event>,
     duration: std::time::Duration,
-    exp_event: EventKindDiscriminants,
+    exp_event: EventKindType,
 ) -> Event {
     let steps = duration.as_millis() / 10;
     let step_duration = duration / 10;
     for _ in 0..steps {
         if let Ok(Ok(event)) = timeout(step_duration, rx.recv()).await
-            && EventKindDiscriminants::from(&event.kind) == exp_event
+            && EventKindType::from(&event.kind) == exp_event
         {
             return event;
         }
@@ -94,7 +94,7 @@ pub async fn wait_for_event(
     panic!("Failed to receive event of type {:?}", exp_event);
 }
 
-static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<EventKindDiscriminants, ResponseHandler>>> =
+static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<EventKindType, ResponseHandler>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Registers a new automatic response handler for a given request event type.
@@ -114,7 +114,7 @@ static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<EventKindDiscriminants, 
 /// Side effects:
 /// * Spawns a background task (owned by `ResponseHandler`) and stores it in a global cache.
 pub fn register_response_event(
-    request_type: EventKindDiscriminants,
+    request_type: EventKindType,
     response_event: Event,
     ctx: ModuleCtx,
 ) -> Result<(), std::io::Error> {
@@ -153,7 +153,7 @@ pub fn register_response_event(
 /// Side effects:
 /// * Mutates the global `RESPONSE_HANDLERS_CACHE`.
 /// * Aborts the spawned task associated with the handler (if present).
-pub fn unregister_response_event(request_type: &EventKindDiscriminants) {
+pub fn unregister_response_event(request_type: &EventKindType) {
     let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
     if let Some(handler) = cache.remove(request_type) {
         debug!(
@@ -166,7 +166,7 @@ pub fn unregister_response_event(request_type: &EventKindDiscriminants) {
 
 struct ResponseHandlerRuntime {
     pub resp: Event,
-    pub request_type: EventKindDiscriminants,
+    pub request_type: EventKindType,
     pub ctx: ModuleCtx,
 }
 
@@ -192,11 +192,7 @@ impl ResponseHandler {
     /// task that monitors the event receiver for matching request types.
     /// When a matching event is detected, the associated response is sent
     /// through the module context.
-    pub fn new(
-        ctx: ModuleCtx,
-        request_type: EventKindDiscriminants,
-        response_event: Event,
-    ) -> Self {
+    pub fn new(ctx: ModuleCtx, request_type: EventKindType, response_event: Event) -> Self {
         let rt = ResponseHandlerRuntime {
             resp: response_event,
             request_type,
@@ -220,7 +216,7 @@ fn run(mut rt: ResponseHandlerRuntime) -> tokio::task::JoinHandle<()> {
                 match event {
                     Ok(event) => {
                         debug!("ResponseHandler received event {:?}", event);
-                        if EventKindDiscriminants::from(event.kind) == rt.request_type {
+                        if EventKindType::from(event.kind) == rt.request_type {
                             debug!("ResponseHandler sending response for request type {:?}", rt.request_type);
                             let _ = rt.ctx.sender.send(rt.resp.clone());
                         }

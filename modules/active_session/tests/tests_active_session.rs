@@ -1,7 +1,7 @@
 use active_session::ActiveSession;
 use common::{lap::Lap, test_helper::track::get_track};
 use module_core::{
-    Event, EventBus, EventKind, EventKindDiscriminants, Module, Response, payload_ref,
+    Event, EventBus, EventKind, EventKindType, Module, Response, payload_ref,
     test_helper::{register_response_event, stop_module, wait_for_event},
 };
 use std::time::Duration;
@@ -10,7 +10,7 @@ use tracing::debug;
 fn create_module(eb: &EventBus) -> tokio::task::JoinHandle<Result<(), ()>> {
     let session = ActiveSession::new(eb.context());
     if register_response_event(
-        EventKindDiscriminants::DetectTrackRequestEvent,
+        EventKindType::DetectTrackRequestEvent,
         Event {
             kind: EventKind::DetectTrackResponseEvent(
                 Response {
@@ -43,7 +43,7 @@ async fn store_session_when_lap_finished() {
     let _track_event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::DetectTrackResponseEvent,
+        EventKindType::DetectTrackResponseEvent,
     )
     .await;
 
@@ -67,7 +67,7 @@ async fn store_session_when_lap_finished() {
     let store_event = wait_for_event(
         &mut eb.subscribe(),
         Duration::from_millis(100),
-        EventKindDiscriminants::SaveSessionRequestEvent,
+        EventKindType::SaveSessionRequestEvent,
     )
     .await;
 

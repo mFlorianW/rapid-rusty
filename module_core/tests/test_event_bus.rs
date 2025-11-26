@@ -13,8 +13,5 @@ pub async fn events_delivered() {
             .await
             .expect("Failed to receive event in required time")
             .unwrap();
-    assert_eq!(
-        received_event.kind_discriminant(),
-        event.kind_discriminant()
-    );
+    assert_eq!(received_event.event_type(), event.event_type());
 }
