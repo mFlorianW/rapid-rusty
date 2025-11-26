@@ -1308,6 +1308,7 @@ dependencies = [
  "common",
  "strum",
  "strum_macros",
+ "test-log",
  "tokio",
  "tracing",
 ]

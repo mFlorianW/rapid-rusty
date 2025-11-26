@@ -1,6 +1,10 @@
 use common::{session::Session, track::Track};
-use std::{io::ErrorKind, sync::Arc, sync::RwLock};
+use std::{
+    io::ErrorKind,
+    sync::{Arc, RwLock},
+};
 use strum_macros::EnumDiscriminants;
+use tokio::time::timeout;
 
 /// Represents a high-level event in the system.
 ///
@@ -16,8 +20,62 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn kind_discriminant(&self) -> std::mem::Discriminant<EventKind> {
-        std::mem::discriminant(&self.kind)
+    /// Returns the high-level type of this event.
+    ///
+    /// This converts the event's specific `kind` into an `EventKindType`,
+    /// which is useful for grouping or filtering events by category.
+    pub fn event_type(&self) -> EventKindType {
+        EventKindType::from(&self.kind)
+    }
+
+    /// Returns the correlation ID carried by the event, if any.
+    ///
+    /// - For request events, this is the `id` from the request payload.
+    /// - For response events, this is the `id` from the response payload.
+    /// - For events without a correlation ID, returns `None`.
+    pub fn id(&self) -> Option<u64> {
+        match &self.kind {
+            EventKind::LoadStoredSessionIdsRequestEvent(req)
+            | EventKind::LoadStoredTrackIdsRequest(req)
+            | EventKind::LoadAllStoredTracksRequestEvent(req)
+            | EventKind::DetectTrackRequestEvent(req) => Some(req.id),
+            EventKind::SaveSessionRequestEvent(req) => Some(req.id),
+            EventKind::LoadSessionRequestEvent(req) => Some(req.id),
+            EventKind::DeleteSessionRequestEvent(req) => Some(req.id),
+            EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.id),
+            EventKind::SaveSessionResponseEvent(res) => Some(res.id),
+            EventKind::LoadSessionResponseEvent(res) => Some(res.id),
+            EventKind::DeleteSessionResponseEvent(res) => Some(res.id),
+            EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.id),
+            EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.id),
+            EventKind::DetectTrackResponseEvent(res) => Some(res.id),
+            _ => None,
+        }
+    }
+
+    /// Returns the logical address associated with the event, if available.
+    ///
+    /// - For request events, returns the `sender_addr`.
+    /// - For response events, returns the `receiver_addr`.
+    /// - For events without an address, returns `None`.
+    pub fn addr(&self) -> Option<u64> {
+        match &self.kind {
+            EventKind::LoadStoredSessionIdsRequestEvent(req) => Some(req.sender_addr),
+            EventKind::SaveSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::DeleteSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadStoredTrackIdsRequest(req)
+            | EventKind::LoadAllStoredTracksRequestEvent(req)
+            | EventKind::DetectTrackRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::SaveSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::DeleteSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::DetectTrackResponseEvent(res) => Some(res.receiver_addr),
+            _ => None,
+        }
     }
 }
 
@@ -40,6 +98,40 @@ pub struct Request<T = ()> {
     pub data: T,
 }
 
+impl<T> Request<T> {
+    /// Constructs a new `Request` with the given metadata and payload.
+    ///
+    /// - `id`: Correlation identifier used to match responses.
+    /// - `sender_addr`: Logical address of the sender.
+    /// - `data`: Payload carried by the request.
+    ///
+    /// Returns a `Request<T>` wrapping `data`.
+    pub fn new(id: u64, sender_addr: u64, data: T) -> Arc<Self> {
+        Arc::new(Request {
+            id,
+            sender_addr,
+            data,
+        })
+    }
+}
+
+impl Request {
+    /// Creates a request with an empty payload (`()`).
+    ///
+    /// Use for control or signal messages that only need a correlation `id` and the sender's address.
+    /// - `id`: Correlation identifier for the request.
+    /// - `sender_addr`: Logical address of the sender.
+    ///
+    /// Returns a `Request<()>` carrying no data.
+    pub fn empty_request(id: u64, sender_addr: u64) -> Arc<Self> {
+        Arc::new(Request {
+            id,
+            sender_addr,
+            data: (),
+        })
+    }
+}
+
 /// Represents a generic response message.
 ///
 /// # Fields
@@ -57,6 +149,23 @@ pub struct Response<T = ()> {
     pub id: u64,
     pub receiver_addr: u64,
     pub data: T,
+}
+
+impl<T> Response<T> {
+    /// Constructs a new `Response` with the given metadata and payload.
+    ///
+    /// - `id`: Correlation identifier used to match responses.
+    /// - `receiver_addr`: Logical address of the receiver.
+    /// - `data`: Payload carried by the response.
+    ///
+    /// Returns a `Response<T>` wrapping `data`.
+    pub fn new(id: u64, receiver_addr: u64, data: T) -> Arc<Self> {
+        Arc::new(Response {
+            id,
+            receiver_addr,
+            data,
+        })
+    }
 }
 
 /// A thread-safe, reference-counted pointer to a [`GnssPosition`].
@@ -125,6 +234,7 @@ macro_rules! payload_ref {
 /// and transmitted via the [`EventBus`].
 #[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(Hash))]
+#[strum_discriminants(name(EventKindType))]
 pub enum EventKind {
     /// Indicates that a module shall terminate.
     QuitEvent,
@@ -209,8 +319,12 @@ pub enum EventKind {
     /// The vector contains all tracks found in the persistent storage.
     LoadAllStoredTracksResponseEvent(LoadStoredTracksReponsePtr),
 
+    /// Event carrying a request to start a track detection operation.
+    /// Uses `EmptyRequestPtr` as a signal-only payload (no parameters).
     DetectTrackRequestEvent(EmptyRequestPtr),
 
+    /// Event emitted after track detection finishes.
+    /// Contains the `TrackDetectionResponsePtr` with detection results.
     DetectTrackResponseEvent(TrackDetectionResponsePtr),
 }
 
@@ -296,6 +410,40 @@ pub struct ModuleCtx {
     pub receiver: tokio::sync::broadcast::Receiver<Event>,
 }
 
+#[derive(Debug)]
+pub enum ModuleCtxError {
+    PublishError(String),
+    ReceiveError(String),
+    ReceiveTimeout,
+}
+
+impl ModuleCtx {
+    pub async fn publish_event(&self, event: EventKind) -> Result<(), ModuleCtxError> {
+        self.sender
+            .send(Event { kind: event })
+            .map(|_| ())
+            .map_err(|e| ModuleCtxError::PublishError(format!("Failed to publish event: {}", e)))
+    }
+
+    pub async fn wait_for_event(
+        &mut self,
+        id: u64,
+        addr: u64,
+        response_type: &EventKindType,
+    ) -> Result<Event, ModuleCtxError> {
+        wait_for_event(self, id, addr, response_type).await
+    }
+}
+
+impl Clone for ModuleCtx {
+    fn clone(&self) -> Self {
+        ModuleCtx {
+            sender: self.sender.clone(),
+            receiver: self.receiver.resubscribe(),
+        }
+    }
+}
+
 impl ModuleCtx {
     /// Constructs a new [`ModuleCtx`] from the given [`EventBus`].
     ///
@@ -307,6 +455,38 @@ impl ModuleCtx {
             receiver: event_bus.subscribe(),
         }
     }
+}
+
+async fn wait_for_event(
+    ctx: &mut ModuleCtx,
+    id: u64,
+    addr: u64,
+    response_type: &EventKindType,
+) -> Result<Event, ModuleCtxError> {
+    let func = async move {
+        loop {
+            match ctx.receiver.recv().await {
+                Ok(event) => {
+                    if EventKindType::from(&event.kind) == *response_type
+                        && event.id() == Some(id)
+                        && event.addr() == Some(addr)
+                    {
+                        return Ok(event);
+                    }
+                }
+                Err(e) => {
+                    return Err(ModuleCtxError::ReceiveError(format!(
+                        "Failed to receive event: {}",
+                        e
+                    )));
+                }
+            }
+        }
+    };
+    timeout(std::time::Duration::from_secs(20), func)
+        .await
+        .map(|res| res.unwrap())
+        .map_err(|_| ModuleCtxError::ReceiveTimeout)
 }
 
 pub mod test_helper;

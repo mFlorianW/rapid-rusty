@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use common::session::Session;
-use module_core::{Event, EventKind, Module, ModuleCtx, Request};
+use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};
 use rocket::{
     State,
     serde::{Serialize, json::Json},
@@ -133,6 +133,7 @@ impl Module for Rest {
 async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
     let mut ctx_lock = ctx.lock().await;
     let req_id = ctx_lock.request_id();
+    let addr = ctx_lock.module_addr;
     let _ = ctx_lock.ctx.sender.send(Event {
         kind: EventKind::LoadStoredSessionIdsRequestEvent(
             Request {
@@ -143,46 +144,42 @@ async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
             .into(),
         ),
     });
+    if ctx_lock
+        .ctx
+        .publish_event(EventKind::LoadStoredSessionIdsRequestEvent(Request::new(
+            ctx_lock.module_addr,
+            req_id,
+            (),
+        )))
+        .await
+        .is_err()
+    {
+        error!("Failed to publish LoadStoredSessionIdsRequestEvent");
+        Arc::new(Vec::<String>::new());
+    }
     debug!("Sent LoadStoredSessionIdsRequestEvent with id {}", req_id);
-    drop(ctx_lock);
-    wait_for_session_id_response(req_id, ctx).await
-}
-
-/// Waits for a session ID response from the session storage.
-///
-/// This asynchronous function waits until a session ID response matching the given request ID
-/// is received from the event channel, then returns the session IDs as an Arc<Vec<String>>.
-/// If an unrelated event or error is received, it continues waiting.
-///
-/// # Arguments
-/// * `request_id` - The unique identifier for the request to match the response.
-/// * `ctx` - Shared context containing the event receiver.
-///
-/// # Returns
-/// * `Arc<Vec<String>>` - The received session IDs.
-async fn wait_for_session_id_response(
-    request_id: u64,
-    ctx: &Arc<Mutex<RestCtx>>,
-) -> Arc<Vec<String>> {
-    let lock_guard = ctx.lock().await;
-    let mut receiver = lock_guard.ctx.receiver.resubscribe();
-    drop(lock_guard);
-    loop {
-        let event = receiver.recv().await;
-        match event {
-            Ok(event) => match event.kind {
-                EventKind::LoadStoredSessionIdsResponseEvent(response) => {
-                    if response.id == request_id {
-                        debug!(
-                            "Received LoadStoredSessionIdsResponseEvent for response id {}",
-                            response.id
-                        );
-                        return response.data.clone();
-                    }
-                }
-                _ => continue,
-            },
-            Err(_) => continue,
+    match ctx_lock
+        .ctx
+        .wait_for_event(
+            req_id,
+            addr,
+            &EventKindType::LoadStoredSessionIdsResponseEvent,
+        )
+        .await
+    {
+        Ok(event) => match payload_ref!(event.kind, EventKind::LoadStoredSessionIdsResponseEvent) {
+            Some(resp) => resp.data.clone(),
+            None => {
+                error!("Received invalid LoadStoredSessionIdsResponseEvent payload");
+                Arc::new(Vec::<String>::new())
+            }
+        },
+        Err(e) => {
+            error!(
+                "Error while waiting for LoadStoredSessionIdsResponseEvent: {:?}",
+                e
+            );
+            Arc::new(Vec::<String>::new())
         }
     }
 }
@@ -232,6 +229,7 @@ async fn request_session(
 ) -> Result<Arc<RwLock<Session>>, std::io::ErrorKind> {
     let mut ctx_lock = ctx.lock().await;
     let req_id = ctx_lock.request_id();
+    let addr = ctx_lock.module_addr;
     let _ = ctx_lock.ctx.sender.send(Event {
         kind: EventKind::LoadSessionRequestEvent(
             Request {
@@ -243,46 +241,21 @@ async fn request_session(
         ),
     });
     debug!("Sent LoadSessionRequestEvent with id {}", req_id);
-    drop(ctx_lock);
-    wait_for_session_response(req_id, ctx).await
-}
-
-/// Waits asynchronously for a session response event from the event bus.
-///
-/// This function listens for incoming events on the event receiver and returns the session data
-/// when a `LoadSessionResponseEvent` is received. If no such event is received, it returns an error.
-///
-/// # Arguments
-/// * `ctx` - Shared context containing the event receiver.
-///
-/// # Returns
-/// * `Result<Arc<RwLock<Session>>, std::io::ErrorKind>` - The loaded session or an error.
-async fn wait_for_session_response(
-    request_id: u64,
-    ctx: &Arc<Mutex<RestCtx>>,
-) -> Result<Arc<RwLock<Session>>, std::io::ErrorKind> {
-    let lock_guard = ctx.lock().await;
-    let mut receiver = lock_guard.ctx.receiver.resubscribe();
-    drop(lock_guard);
-    loop {
-        let event = receiver.recv().await;
-        match event {
-            Ok(event) => match event.kind {
-                EventKind::LoadSessionResponseEvent(response) => {
-                    if response.id == request_id {
-                        debug!(
-                            "Received LoadSessionResponseEvent for response id {}",
-                            response.id
-                        );
-                        return response.data.clone();
-                    }
-                }
-                _ => continue,
-            },
-            Err(e) => {
-                error!("Error while waiting for session response: {}", e);
-                continue;
+    match ctx_lock
+        .ctx
+        .wait_for_event(req_id, addr, &EventKindType::LoadSessionResponseEvent)
+        .await
+    {
+        Ok(event) => match payload_ref!(event.kind, EventKind::LoadSessionResponseEvent) {
+            Some(resp) => resp.data.clone(),
+            None => {
+                error!("Received invalid LoadSessionResponseEvent payload");
+                Err(std::io::ErrorKind::InvalidData)
             }
+        },
+        Err(e) => {
+            error!("Error while waiting for LoadSessionResponseEvent: {:?}", e);
+            Err(std::io::ErrorKind::TimedOut)
         }
     }
 }

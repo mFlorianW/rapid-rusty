@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use common::position::{GnssInformation, GnssPosition, Position};
 use gnss::constant_source::ConstantGnssModule;
 use module_core::{
-    EventBus, EventKind, EventKindDiscriminants, Module, ModuleCtx, payload_ref,
+    EventBus, EventKind, EventKindType, Module, ModuleCtx, payload_ref,
     test_helper::{stop_module, wait_for_event},
 };
 
@@ -57,7 +57,7 @@ async fn interpolate_between_two_points() {
     let pos_event = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(TIMEOUT_MS.into()),
-        EventKindDiscriminants::GnssPositionEvent,
+        EventKindType::GnssPositionEvent,
     )
     .await;
 
@@ -83,7 +83,7 @@ async fn notify_gnss_information() {
     let info_event = wait_for_event(
         &mut event_bus.subscribe(),
         std::time::Duration::from_millis(15000),
-        EventKindDiscriminants::GnssInformationEvent,
+        EventKindType::GnssInformationEvent,
     )
     .await;
     assert_eq!(
