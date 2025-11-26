@@ -1,6 +1,10 @@
 use common::{session::Session, track::Track};
-use std::{io::ErrorKind, sync::Arc, sync::RwLock};
+use std::{
+    io::ErrorKind,
+    sync::{Arc, RwLock},
+};
 use strum_macros::EnumDiscriminants;
+use tokio::time::timeout;
 
 /// Represents a high-level event in the system.
 ///
@@ -406,6 +410,31 @@ pub struct ModuleCtx {
     pub receiver: tokio::sync::broadcast::Receiver<Event>,
 }
 
+#[derive(Debug)]
+pub enum ModuleCtxError {
+    PublishError(String),
+    ReceiveError(String),
+    ReceiveTimeout,
+}
+
+impl ModuleCtx {
+    pub async fn publish_event(&self, event: EventKind) -> Result<(), ModuleCtxError> {
+        self.sender
+            .send(Event { kind: event })
+            .map(|_| ())
+            .map_err(|e| ModuleCtxError::PublishError(format!("Failed to publish event: {}", e)))
+    }
+
+    pub async fn wait_for_event(
+        &mut self,
+        id: u64,
+        addr: u64,
+        response_type: &EventKindType,
+    ) -> Result<Event, ModuleCtxError> {
+        wait_for_event(self, id, addr, response_type).await
+    }
+}
+
 impl Clone for ModuleCtx {
     fn clone(&self) -> Self {
         ModuleCtx {
@@ -426,6 +455,38 @@ impl ModuleCtx {
             receiver: event_bus.subscribe(),
         }
     }
+}
+
+async fn wait_for_event(
+    ctx: &mut ModuleCtx,
+    id: u64,
+    addr: u64,
+    response_type: &EventKindType,
+) -> Result<Event, ModuleCtxError> {
+    let func = async move {
+        loop {
+            match ctx.receiver.recv().await {
+                Ok(event) => {
+                    if EventKindType::from(&event.kind) == *response_type
+                        && event.id() == Some(id)
+                        && event.addr() == Some(addr)
+                    {
+                        return Ok(event);
+                    }
+                }
+                Err(e) => {
+                    return Err(ModuleCtxError::ReceiveError(format!(
+                        "Failed to receive event: {}",
+                        e
+                    )));
+                }
+            }
+        }
+    };
+    timeout(std::time::Duration::from_secs(20), func)
+        .await
+        .map(|res| res.unwrap())
+        .map_err(|_| ModuleCtxError::ReceiveTimeout)
 }
 
 pub mod test_helper;
