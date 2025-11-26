@@ -97,6 +97,23 @@ pub struct Response<T = ()> {
     pub data: T,
 }
 
+impl<T> Response<T> {
+    /// Constructs a new `Response` with the given metadata and payload.
+    ///
+    /// - `id`: Correlation identifier used to match responses.
+    /// - `receiver_addr`: Logical address of the receiver.
+    /// - `data`: Payload carried by the response.
+    ///
+    /// Returns a `Response<T>` wrapping `data`.
+    pub fn new(id: u64, receiver_addr: u64, data: T) -> Arc<Self> {
+        Arc::new(Response {
+            id,
+            receiver_addr,
+            data,
+        })
+    }
+}
+
 /// A thread-safe, reference-counted pointer to a [`GnssPosition`].
 ///
 /// This type alias wraps a [`GnssPosition`] inside an [`Arc`], allowing
