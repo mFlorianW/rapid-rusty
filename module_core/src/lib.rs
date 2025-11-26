@@ -315,8 +315,12 @@ pub enum EventKind {
     /// The vector contains all tracks found in the persistent storage.
     LoadAllStoredTracksResponseEvent(LoadStoredTracksReponsePtr),
 
+    /// Event carrying a request to start a track detection operation.
+    /// Uses `EmptyRequestPtr` as a signal-only payload (no parameters).
     DetectTrackRequestEvent(EmptyRequestPtr),
 
+    /// Event emitted after track detection finishes.
+    /// Contains the `TrackDetectionResponsePtr` with detection results.
     DetectTrackResponseEvent(TrackDetectionResponsePtr),
 }
 
