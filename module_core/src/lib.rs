@@ -23,6 +23,56 @@ impl Event {
     pub fn event_type(&self) -> EventKindType {
         EventKindType::from(&self.kind)
     }
+
+    /// Returns the correlation ID carried by the event, if any.
+    ///
+    /// - For request events, this is the `id` from the request payload.
+    /// - For response events, this is the `id` from the response payload.
+    /// - For events without a correlation ID, returns `None`.
+    pub fn id(&self) -> Option<u64> {
+        match &self.kind {
+            EventKind::LoadStoredSessionIdsRequestEvent(req)
+            | EventKind::LoadStoredTrackIdsRequest(req)
+            | EventKind::LoadAllStoredTracksRequestEvent(req)
+            | EventKind::DetectTrackRequestEvent(req) => Some(req.id),
+            EventKind::SaveSessionRequestEvent(req) => Some(req.id),
+            EventKind::LoadSessionRequestEvent(req) => Some(req.id),
+            EventKind::DeleteSessionRequestEvent(req) => Some(req.id),
+            EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.id),
+            EventKind::SaveSessionResponseEvent(res) => Some(res.id),
+            EventKind::LoadSessionResponseEvent(res) => Some(res.id),
+            EventKind::DeleteSessionResponseEvent(res) => Some(res.id),
+            EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.id),
+            EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.id),
+            EventKind::DetectTrackResponseEvent(res) => Some(res.id),
+            _ => None,
+        }
+    }
+
+    /// Returns the logical address associated with the event, if available.
+    ///
+    /// - For request events, returns the `sender_addr`.
+    /// - For response events, returns the `receiver_addr`.
+    /// - For events without an address, returns `None`.
+    pub fn addr(&self) -> Option<u64> {
+        match &self.kind {
+            EventKind::LoadStoredSessionIdsRequestEvent(req) => Some(req.sender_addr),
+            EventKind::SaveSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::DeleteSessionRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadStoredTrackIdsRequest(req)
+            | EventKind::LoadAllStoredTracksRequestEvent(req)
+            | EventKind::DetectTrackRequestEvent(req) => Some(req.sender_addr),
+            EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::SaveSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::DeleteSessionResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::DetectTrackResponseEvent(res) => Some(res.receiver_addr),
+            _ => None,
+        }
+    }
 }
 
 /// Represents a generic request message.
