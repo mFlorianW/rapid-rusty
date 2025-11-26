@@ -1,5 +1,22 @@
 # Releases
 
+## Release Note v0.4.0
+
+### Documentation
+- document track detection events
+
+### Features
+- add publish event and wait for event function in module ctx
+- add helper to get id and addr from a event
+- add response constructor
+- add request constructors
+- make the module context cloneable
+
+### Refactoring
+- rename EventKindDiscriminant to EventKindType
+
+
+
 ## Release Note v0.3.1
 
 ### Continuous Integration
