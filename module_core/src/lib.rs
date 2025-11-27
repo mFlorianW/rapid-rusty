@@ -418,7 +418,7 @@ pub enum ModuleCtxError {
 }
 
 impl ModuleCtx {
-    pub async fn publish_event(&self, event: EventKind) -> Result<(), ModuleCtxError> {
+    pub fn publish_event(&self, event: EventKind) -> Result<(), ModuleCtxError> {
         self.sender
             .send(Event { kind: event })
             .map(|_| ())
@@ -454,6 +454,18 @@ impl ModuleCtx {
             sender: event_bus.sender.clone(),
             receiver: event_bus.subscribe(),
         }
+    }
+
+    /// Returns a new broadcast receiver subscribed to this event bus.
+    ///
+    /// This creates an independent subscription using `resubscribe()`. The
+    /// returned receiver:
+    /// - Only receives events published after this call (no replay).
+    /// - Does not affect other receivers or advance any internal cursor.
+    /// - May yield `tokio::sync::broadcast::error::RecvError::Lagged(_)`
+    ///   if the consumer falls behind.
+    pub fn receiver(&mut self) -> tokio::sync::broadcast::Receiver<Event> {
+        self.receiver.resubscribe()
     }
 }
 

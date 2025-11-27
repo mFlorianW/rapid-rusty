@@ -42,7 +42,6 @@ pub async fn test_wait_for_event() {
         .publish_event(EventKind::LoadStoredSessionIdsRequestEvent(
             Request::empty_request(0, 0xFA),
         ))
-        .await
         .is_err()
     {
         panic!("Failed to publish request event");

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use common::{lap::Lap, session::Session};
 use module_core::{
-    DurationPtr, Event, EventKind, Module, ModuleCtx, Request, SaveSessionRequestPtr,
+    DurationPtr, EventKind, Module, ModuleCtx, Request, SaveSessionRequestPtr,
     TrackDetectionResponsePtr,
 };
 use std::sync::{Arc, RwLock};
@@ -73,13 +73,14 @@ impl ActiveSession {
                     duration
                 );
             }
-            let _ = self.ctx.sender.send(Event {
-                kind: EventKind::SaveSessionRequestEvent(SaveSessionRequestPtr::new(Request {
-                    id: 30,
-                    sender_addr: 40,
-                    data: session_ptr.clone(),
-                })),
+            let request = SaveSessionRequestPtr::new(Request {
+                id: 30,
+                sender_addr: 40,
+                data: session_ptr.clone(),
             });
+            let _ = self
+                .ctx
+                .publish_event(EventKind::SaveSessionRequestEvent(request));
         }
     }
 }
@@ -87,20 +88,15 @@ impl ActiveSession {
 #[async_trait]
 impl Module for ActiveSession {
     async fn run(&mut self) -> std::result::Result<(), ()> {
-        let _ = self.ctx.sender.send(Event {
-            kind: EventKind::DetectTrackRequestEvent(
-                Request {
-                    id: 10,
-                    sender_addr: 100,
-                    data: (),
-                }
-                .into(),
-            ),
-        });
+        let request = Request::empty_request(10, 100);
+        let _ = self
+            .ctx
+            .publish_event(EventKind::DetectTrackRequestEvent(request));
         let mut run = true;
+        let mut receiver = self.ctx.receiver();
         while run {
             tokio::select! {
-                event = self.ctx.receiver.recv() => {
+                event = receiver.recv() => {
                     match event {
                         Ok(event) => {
                             match event.kind {
