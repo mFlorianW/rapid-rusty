@@ -151,7 +151,6 @@ async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
             req_id,
             (),
         )))
-        .await
         .is_err()
     {
         error!("Failed to publish LoadStoredSessionIdsRequestEvent");
