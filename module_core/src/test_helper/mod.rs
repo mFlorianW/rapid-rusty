@@ -6,7 +6,7 @@ use std::{
     sync::{LazyLock, RwLock},
 };
 use tokio::time::timeout;
-use tracing::debug;
+use tracing::{debug, error};
 
 /// Sends a quit signal to a running module and waits for it to stop gracefully.
 ///
@@ -94,7 +94,7 @@ pub async fn wait_for_event(
     panic!("Failed to receive event of type {:?}", exp_event);
 }
 
-static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<EventKindType, ResponseHandler>>> =
+static RESPONSE_HANDLERS_CACHE: LazyLock<RwLock<HashMap<(usize, EventKindType), ResponseHandler>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Registers a new automatic response handler for a given request event type.
@@ -118,11 +118,14 @@ pub fn register_response_event(
     response_event: Event,
     ctx: ModuleCtx,
 ) -> Result<(), std::io::Error> {
-    if RESPONSE_HANDLERS_CACHE
-        .read()
-        .unwrap()
-        .contains_key(&request_type)
-    {
+    let bus_id = ctx.bus_id();
+    let handler = ResponseHandler::new(ctx, request_type, response_event);
+    let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
+    if cache.insert((bus_id, request_type), handler).is_some() {
+        error!(
+            "Response handler for request type {:?} already exists in cache after insertion",
+            (bus_id, request_type)
+        );
         return Err(std::io::Error::new(
             ErrorKind::AlreadyExists,
             format!(
@@ -131,9 +134,6 @@ pub fn register_response_event(
             ),
         ));
     }
-    let handler = ResponseHandler::new(ctx, request_type, response_event);
-    let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
-    cache.insert(request_type, handler);
     debug!(
         "Registered response handler for request type {:?}",
         request_type
@@ -153,9 +153,9 @@ pub fn register_response_event(
 /// Side effects:
 /// * Mutates the global `RESPONSE_HANDLERS_CACHE`.
 /// * Aborts the spawned task associated with the handler (if present).
-pub fn unregister_response_event(request_type: &EventKindType) {
+pub fn unregister_response_event(bus_id: usize, request_type: &EventKindType) {
     let mut cache = RESPONSE_HANDLERS_CACHE.write().unwrap();
-    if let Some(handler) = cache.remove(request_type) {
+    if let Some(handler) = cache.remove(&(bus_id, *request_type)) {
         debug!(
             "Unregistered response handler for request type {:?}",
             request_type
