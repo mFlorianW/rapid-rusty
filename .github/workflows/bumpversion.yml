@@ -17,6 +17,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v6
         with:
+          token: ${{ secrets.COMMITIZEN_RELEASE_SECRET }}
           fetch-depth: 0
       - name: Create bump and changelog
         uses: commitizen-tools/commitizen-action@master
