@@ -287,6 +287,65 @@ async fn get_session(id: &str, ctx: &State<Arc<Mutex<RestCtx>>>) -> Option<Strin
     }
 }
 
+/// Delete a session identified by `id`.
+///
+/// Route: DELETE /v1/sessions/<id>
+///
+/// Sends a DeleteSessionRequestEvent to the backend and waits
+/// for a matching DeleteSessionResponseEvent. On success returns Ok(()),
+/// otherwise returns InternalServerError.
+///
+/// Parameters:
+/// - id: Path parameter identifying the session to delete.
+/// - ctx: Shared RestCtx wrapped in Rocket State + Arc<Mutex<_>>.
+///
+/// Errors:
+/// - Returns InternalServerError if waiting for the response fails or
+///   the received event payload is invalid.
+#[delete("/v1/sessions/<id>")]
+async fn delete_session(
+    id: &str,
+    ctx: &State<Arc<Mutex<RestCtx>>>,
+) -> Result<(), rocket::http::Status> {
+    let mut ctx_lock = ctx.lock().await;
+    let req_id = ctx_lock.request_id();
+    let addr = ctx_lock.module_addr;
+    let _ = ctx_lock.ctx.sender.send(Event {
+        kind: EventKind::DeleteSessionRequestEvent(
+            Request {
+                sender_addr: ctx_lock.module_addr,
+                id: req_id,
+                data: id.to_string(),
+            }
+            .into(),
+        ),
+    });
+    debug!("Sent DeleteSessionRequestEvent with id {}", req_id);
+    match ctx_lock
+        .ctx
+        .wait_for_event(req_id, addr, &EventKindType::DeleteSessionResponseEvent)
+        .await
+    {
+        Ok(event) => match payload_ref!(event.kind, EventKind::DeleteSessionResponseEvent) {
+            Some(_) => {
+                debug!("Session {} deleted successfully", id);
+                Ok(())
+            }
+            None => {
+                error!("Received invalid DeleteSessionResponseEvent payload");
+                Err(rocket::http::Status::InternalServerError)
+            }
+        },
+        Err(e) => {
+            error!(
+                "Error while waiting for DeleteSessionResponseEvent: {:?}",
+                e
+            );
+            Err(rocket::http::Status::InternalServerError)
+        }
+    }
+}
+
 /// The default port used for the REST server.
 static DEFAULT_PORT: u16 = 27015;
 
@@ -315,7 +374,10 @@ async fn launch_rest_server(
         .merge(("cli_colors", false));
 
     rocket::custom(figment)
-        .mount("/", rocket::routes![get_session_ids, get_session])
+        .mount(
+            "/",
+            rocket::routes![get_session_ids, get_session, delete_session],
+        )
         .manage(ctx)
         .ignite()
         .await

@@ -87,3 +87,33 @@ async fn request_session() {
     assert_eq!(received_session, get_session());
     stop_module(&eb, &mut rest).await;
 }
+
+#[tokio::test]
+#[test_log::test]
+#[serial]
+async fn test_delete_session() {
+    let eb = EventBus::default();
+    let mut rest = create_module(eb.context());
+    let resp = Response::new(0, 0xff, Ok(()));
+    if register_response_event(
+        EventKindType::DeleteSessionRequestEvent,
+        Event {
+            kind: EventKind::DeleteSessionResponseEvent(resp),
+        },
+        eb.context(),
+    )
+    .is_err()
+    {
+        panic!("Failed to register DeleteSessionResponseEvent");
+    }
+
+    let client = reqwest::Client::new();
+    let response = client
+        .delete("http://localhost:27015/v1/sessions/session_1")
+        .send()
+        .await
+        .unwrap();
+
+    assert!(response.status().is_success());
+    stop_module(&eb, &mut rest).await;
+}
