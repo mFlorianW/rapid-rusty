@@ -1,5 +1,12 @@
 # Releases
 
+## Release Note v0.5.0
+
+### Features
+- REST delete session
+
+
+
 ## Release Note v0.4.1
 
 ### Continuous Integration
