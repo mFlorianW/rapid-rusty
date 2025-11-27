@@ -1,5 +1,15 @@
 # Releases
 
+## Release Note v0.4.1
+
+### Continuous Integration
+- add secret to to checkout
+
+### Refactoring
+- remove async from publish_event function
+
+
+
 ## Release Note v0.4.0
 
 ### Documentation
