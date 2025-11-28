@@ -514,19 +514,27 @@ async fn wait_for_event(
                         return Ok(event);
                     }
                 }
-                Err(e) => {
-                    return Err(ModuleCtxError::ReceiveError(format!(
-                        "Failed to receive event: {}",
-                        e
-                    )));
-                }
+                Err(e) => match e {
+                    tokio::sync::broadcast::error::RecvError::Lagged(skipped) => {
+                        info!(
+                            "ModuleCtx (bus id {}) lagged behind, skipped {} messages",
+                            ctx.id, skipped
+                        );
+                        continue;
+                    }
+                    _ => {
+                        return Err(ModuleCtxError::ReceiveError(format!(
+                            "Failed to receive event: {}",
+                            e
+                        )));
+                    }
+                },
             }
         }
     };
     timeout(std::time::Duration::from_secs(20), func)
         .await
-        .map(|res| res.unwrap())
-        .map_err(|_| ModuleCtxError::ReceiveTimeout)
+        .map_err(|_| ModuleCtxError::ReceiveTimeout)?
 }
 
 pub mod test_helper;
