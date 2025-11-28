@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use common::{lap::Lap, session::Session};
+use common::{lap::Lap, position::GnssPosition, session::Session};
 use module_core::{
     DurationPtr, EventKind, Module, ModuleCtx, Request, SaveSessionRequestPtr,
     TrackDetectionResponsePtr,
@@ -83,6 +83,15 @@ impl ActiveSession {
                 .publish_event(EventKind::SaveSessionRequestEvent(request));
         }
     }
+
+    /// Handles a new GNSS position update.
+    ///
+    /// If a lap is currently active, the position is appended to its log for tracking.
+    fn on_gnss_position(&mut self, gnss_pos: GnssPosition) {
+        if let Some(active_lap) = &mut self.active_lap {
+            active_lap.log_points.push(gnss_pos);
+        }
+    }
 }
 
 #[async_trait]
@@ -115,6 +124,9 @@ impl Module for ActiveSession {
                                 EventKind::LapFinishedEvent(duration) => {
                                     debug!("Lap Finished Event received in ActiveSession module");
                                     self.on_lap_finished(duration);
+                                }
+                                EventKind::GnssPositionEvent(gnss_pos) => {
+                                    self.on_gnss_position(*gnss_pos);
                                 }
                                 _ => (),
                             }

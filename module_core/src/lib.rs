@@ -1,10 +1,14 @@
 use common::{session::Session, track::Track};
 use std::{
     io::ErrorKind,
-    sync::{Arc, RwLock},
+    sync::{
+        Arc, RwLock,
+        atomic::{self, AtomicUsize},
+    },
 };
 use strum_macros::EnumDiscriminants;
 use tokio::time::timeout;
+use tracing::info;
 
 /// Represents a high-level event in the system.
 ///
@@ -336,9 +340,14 @@ pub enum EventKind {
 /// Each published event is cloned and distributed to all active subscribers.
 /// If no subscribers exist at the time of publication, the event is discarded silently.
 pub struct EventBus {
+    id: usize,
     /// The broadcast sender used internally to distribute events.
     sender: tokio::sync::broadcast::Sender<Event>,
 }
+
+/// Global counter used to assign unique, monotonically increasing IDs to bus instances.
+/// Starts at 0 and is incremented atomically for thread-safe ID generation.
+static BUS_ID: AtomicUsize = AtomicUsize::new(0);
 
 impl EventBus {
     /// Creates a new [`EventBus`] with a fixed buffer capacity of 100 messages.
@@ -347,7 +356,10 @@ impl EventBus {
     /// as new ones are published.
     pub fn new() -> Self {
         let (sender, _) = tokio::sync::broadcast::channel(100);
-        EventBus { sender }
+        let id = BUS_ID.fetch_add(1, atomic::Ordering::Relaxed);
+        info!("Creating EventBus with id {}", id);
+        BUS_ID.store(id, atomic::Ordering::SeqCst);
+        EventBus { id, sender }
     }
 
     /// Subscribes to the event bus and returns a [`tokio::sync::broadcast::Receiver`].
@@ -377,6 +389,11 @@ impl EventBus {
     pub fn context(&self) -> ModuleCtx {
         ModuleCtx::new(self)
     }
+
+    /// Returns the numeric identifier for this event bus.
+    pub fn id(&self) -> usize {
+        self.id
+    }
 }
 
 /// Provides a default instance of [`EventBus`].
@@ -403,6 +420,9 @@ pub trait Module {
 /// to both publish and listen for events concurrently.
 #[derive(Debug)]
 pub struct ModuleCtx {
+    /// Unique identifier of the event bus that this context belongs to.
+    id: usize,
+
     /// The broadcast sender used to publish events.
     pub sender: tokio::sync::broadcast::Sender<Event>,
 
@@ -438,6 +458,7 @@ impl ModuleCtx {
 impl Clone for ModuleCtx {
     fn clone(&self) -> Self {
         ModuleCtx {
+            id: self.id,
             sender: self.sender.clone(),
             receiver: self.receiver.resubscribe(),
         }
@@ -449,8 +470,9 @@ impl ModuleCtx {
     ///
     /// Clones the internal broadcast sender and creates a new receiver.
     /// ```
-    pub fn new(event_bus: &EventBus) -> Self {
+    pub(crate) fn new(event_bus: &EventBus) -> Self {
         ModuleCtx {
+            id: event_bus.id(),
             sender: event_bus.sender.clone(),
             receiver: event_bus.subscribe(),
         }
@@ -466,6 +488,12 @@ impl ModuleCtx {
     ///   if the consumer falls behind.
     pub fn receiver(&mut self) -> tokio::sync::broadcast::Receiver<Event> {
         self.receiver.resubscribe()
+    }
+
+    /// Returns the unique identifier of the event bus that this module context belongs to.
+    /// The ID is stable for the lifetime of the context and can be used for logging.
+    pub fn bus_id(&self) -> usize {
+        self.id
     }
 }
 
@@ -486,19 +514,27 @@ async fn wait_for_event(
                         return Ok(event);
                     }
                 }
-                Err(e) => {
-                    return Err(ModuleCtxError::ReceiveError(format!(
-                        "Failed to receive event: {}",
-                        e
-                    )));
-                }
+                Err(e) => match e {
+                    tokio::sync::broadcast::error::RecvError::Lagged(skipped) => {
+                        info!(
+                            "ModuleCtx (bus id {}) lagged behind, skipped {} messages",
+                            ctx.id, skipped
+                        );
+                        continue;
+                    }
+                    _ => {
+                        return Err(ModuleCtxError::ReceiveError(format!(
+                            "Failed to receive event: {}",
+                            e
+                        )));
+                    }
+                },
             }
         }
     };
     timeout(std::time::Duration::from_secs(20), func)
         .await
-        .map(|res| res.unwrap())
-        .map_err(|_| ModuleCtxError::ReceiveTimeout)
+        .map_err(|_| ModuleCtxError::ReceiveTimeout)?
 }
 
 pub mod test_helper;

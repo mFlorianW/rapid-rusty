@@ -11,3 +11,6 @@ test-log.workspace = true
 tokio.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
+
+[dev-dependencies]
+test-log.workspace = true
