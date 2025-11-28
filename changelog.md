@@ -1,5 +1,16 @@
 # Releases
 
+## Release Note v0.6.0
+
+### Features
+- log GNSS positions for current lap in the active session
+
+### Refactoring
+- handle lagged receiver error in wait_for_event
+- introduce an event bus ID for identification purposes
+
+
+
 ## Release Note v0.5.0
 
 ### Features
