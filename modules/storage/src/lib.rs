@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 //! Storage Modul for the laptimer
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.

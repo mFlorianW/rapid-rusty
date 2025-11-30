@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use algorithm::calculate_distance;
 use common::elapsed_time_source::{ElapsedTimeSource, MonotonicTimeSource};
 use common::position::{GnssPosition, Position};

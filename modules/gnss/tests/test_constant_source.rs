@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use chrono::{DateTime, Utc};
 use common::position::{GnssInformation, GnssPosition, Position};
 use gnss::constant_source::ConstantGnssModule;

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use module_core::{EventBus, Module};
 use std::path::PathBuf;
 use storage::*;

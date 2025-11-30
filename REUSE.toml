@@ -1,0 +1,22 @@
+version = 1
+SPDX-PackageName = "rapid-rusty"
+SPDX-PackageSupplier = "Florian Weßel <florianwessel@gmx.net>"
+SPDX-PackageDownloadLocation = "https://github.com/mFlorianW/rapid-rusty"
+
+[[annotations]]
+path = [
+    "REUSE.toml",
+    ".gitignore",
+    "**.json",
+    "**.md",
+    ".github/**",
+    ".pre-commit-config.yaml",
+    "**/Cargo.toml",
+    "Cargo.lock",
+    ".cz.toml",
+    ".changelog.md.j2",
+    "**/.csv",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 All contributors"
+SPDX-License-Identifier = "GPL-2.0-or-later"

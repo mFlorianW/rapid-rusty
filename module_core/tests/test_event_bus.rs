@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use module_core::{test_helper::register_response_event, *};
 use std::sync::Arc;
 

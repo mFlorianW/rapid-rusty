@@ -14,3 +14,12 @@ repos:
     hooks:
     - id: commitizen
       stages: [commit-msg]
+
+  - repo: local
+    hooks:
+    - id: check-license
+      name: check_license
+      entry: reuse lint
+      language: python
+      pass_filenames: false
+      additional_dependencies: ["reuse"]

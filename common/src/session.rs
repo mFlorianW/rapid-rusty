@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use crate::{lap::Lap, serde::date, serde::time, track::Track};
 use chrono::{NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};

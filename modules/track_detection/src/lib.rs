@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use algorithm::is_on_track;
 use async_trait::async_trait;
 use common::{position::Position, track::Track};

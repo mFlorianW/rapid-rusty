@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use common::{session::Session, test_helper::session::get_session};
 use module_core::{
     Event, EventBus, EventKind, EventKindType, Module, ModuleCtx, Response,
