@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use active_session::ActiveSession;
 use clap::{CommandFactory, Parser};
 use dirs::data_local_dir;

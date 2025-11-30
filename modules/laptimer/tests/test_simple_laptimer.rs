@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use common::elapsed_time_source::ElapsedTimeSource;
 use common::position::GnssPosition;
 use common::test_helper::elapsed_test_time_source::{ElapsedTestTimeSource, set_elapsed_time};

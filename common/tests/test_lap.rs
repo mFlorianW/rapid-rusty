@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use chrono::{NaiveDate, NaiveTime};
 use common::{lap::Lap, position::GnssPosition};
 use std::str::FromStr;

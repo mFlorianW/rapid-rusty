@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use async_trait::async_trait;
 use common::session::Session;
 use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 All contributors
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 use common::{test_helper::track::get_track, test_helper::track::get_track_as_json, track::Track};
 
 #[test]
