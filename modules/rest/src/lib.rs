@@ -286,7 +286,10 @@ async fn get_session(
         Ok(session_lock) => {
             let session_guard = match session_lock.read() {
                 Ok(guard) => guard,
-                Err(_) => return None,
+                Err(e) => {
+                    error!("Failed to acquire read lock on session {}: {}", id, e);
+                    return None;
+                }
             };
             Session::to_json(&session_guard).map_or_else(
                 |e| {
@@ -296,7 +299,10 @@ async fn get_session(
                 |json| Some(content::RawJson(json)),
             )
         }
-        Err(_) => None,
+        Err(e) => {
+            error!("Failed to load session {}: {:?}", id, e);
+            None
+        }
     }
 }
 
