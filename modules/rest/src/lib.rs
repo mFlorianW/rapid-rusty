@@ -7,6 +7,7 @@ use common::session::Session;
 use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};
 use rocket::{
     State,
+    response::content,
     serde::{Serialize, json::Json},
 };
 use std::{
@@ -276,7 +277,10 @@ async fn request_session(
 /// # Returns
 /// * `Result<Arc<RwLock<Session>>, std::io::ErrorKind>` - The loaded session or an error.
 #[get("/v1/sessions/<id>")]
-async fn get_session(id: &str, ctx: &State<Arc<Mutex<RestCtx>>>) -> Option<String> {
+async fn get_session(
+    id: &str,
+    ctx: &State<Arc<Mutex<RestCtx>>>,
+) -> Option<content::RawJson<String>> {
     let session = request_session(id, ctx).await;
     match &session {
         Ok(session_lock) => {
@@ -284,8 +288,13 @@ async fn get_session(id: &str, ctx: &State<Arc<Mutex<RestCtx>>>) -> Option<Strin
                 Ok(guard) => guard,
                 Err(_) => return None,
             };
-            let session_json = Session::to_json(&session_guard);
-            session_json.ok()
+            Session::to_json(&session_guard).map_or_else(
+                |e| {
+                    error!("Failed to serialize session to JSON: {}", e);
+                    None
+                },
+                |json| Some(content::RawJson(json)),
+            )
         }
         Err(_) => None,
     }
