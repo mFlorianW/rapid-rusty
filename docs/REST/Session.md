@@ -15,6 +15,11 @@ http://{RAPID_ADDRESS}:{RAPID_PORT}<br>
 (Default: http://{RAPID_ADDRESS}:27015)
 
 ## Resource: Session
+The Session resource allows you to list and retrieve stored session data.
+The session data includes information about the track, laps, and log points recorded during a driving session.
+All the data is structured in JSON format.
+The date values are represented in ISO 8601 format and described with the format "%Y-%m-%dT%H:%M:%S.%3f".
+The id values are unique identifiers for each session and can be used to retrieve specific session details.
 
 ### GET /v1/sessions
 List all stored session IDs.
@@ -26,7 +31,26 @@ Response 200 JSON object
 ```json
 {
   "total": 3,
-  "ids": ["sess-123", "sess-456", "sess-789"]
+  "sessions":  [
+    {
+      "id": "sess-123",
+      "date": "2012-04-23T18:25:43.511Z",
+      "track": "Oschersleben",
+      "laps": 12
+    },
+    {
+      "id": "sess-456",
+      "date": "2012-04-23T18:25:43.511Z",
+      "track": "Oschersleben",
+      "laps": 12
+    },
+    {
+      "id": "sess-789",
+      "date": "2012-04-23T18:25:43.511Z",
+      "track": "Oschersleben",
+      "laps": 12
+    }
+  ]
 }
 ```
 

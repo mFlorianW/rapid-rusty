@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-use common::{session::Session, test_helper::session::get_session};
+use common::{
+    session::{Session, SessionInfo},
+    test_helper::session::get_session,
+};
 use module_core::{
     Event, EventBus, EventKind, EventKindType, Module, ModuleCtx, Response,
     test_helper::{register_response_event, stop_module},
@@ -25,7 +28,7 @@ fn create_module(ctx: ModuleCtx) -> JoinHandle<Result<(), ()>> {
 async fn get_session_request_ids() {
     let eb = EventBus::default();
     let mut rest = create_module(eb.context());
-    let expected_body = r#"{"total":2,"ids":["session_1","session_2"]}"#;
+    let expected_body = include_str!("response_request_session_info.json").trim();
     if register_response_event(
         EventKindType::LoadStoredSessionIdsRequestEvent,
         Event {
@@ -33,7 +36,20 @@ async fn get_session_request_ids() {
                 Response {
                     id: 0,
                     receiver_addr: 0xff,
-                    data: Arc::new(vec!["session_1".to_string(), "session_2".to_string()]),
+                    data: Arc::new(vec![
+                        SessionInfo {
+                            id: "session_1".to_string(),
+                            date: chrono::NaiveDateTime::default(),
+                            track_name: "".to_string(),
+                            laps: 0,
+                        },
+                        SessionInfo {
+                            id: "session_2".to_string(),
+                            date: chrono::NaiveDateTime::default(),
+                            track_name: "".to_string(),
+                            laps: 0,
+                        },
+                    ]),
                 }
                 .into(),
             ),

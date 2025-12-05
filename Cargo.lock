@@ -1765,6 +1765,7 @@ name = "rest"
 version = "0.6.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "common",
  "module_core",
  "reqwest",
@@ -2151,6 +2152,7 @@ name = "storage"
 version = "0.6.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "common",
  "futures",
  "module_core",

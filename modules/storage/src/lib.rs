@@ -6,7 +6,11 @@
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
-use common::{session::Session, track::Track};
+use chrono::NaiveDateTime;
+use common::{
+    session::{Session, SessionInfo},
+    track::Track,
+};
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
     LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr,
@@ -71,19 +75,88 @@ impl FilesSystemStorage {
         }
     }
 
+    /// Persists a session and its derived metadata, returning the session `id`.
+    ///
+    /// Process:
+    /// - Acquires a read lock on `session` (recovers inner value if the lock is poisoned).
+    /// - Serializes the `Session` to JSON and computes a stable `id`.
+    /// - Builds a `SessionInfo` (date/time, track name, lap count) and serializes it to JSON.
+    /// - Releases the lock before performing any filesystem I/O.
+    /// - Writes both JSON payloads to disk via `save_session` and `save_session_info`.
+    ///
+    /// Notes:
+    /// - Serialization currently happens synchronously on the current thread (see TODOs).
+    ///
+    /// Returns:
+    /// - `Ok(id)` for the saved session identifier.
+    ///
+    /// Errors:
+    /// - Propagates errors from serialization and underlying file I/O operations.
     async fn save(&self, session: &RwLock<Session>) -> std::io::Result<String> {
         let json_session;
         let id;
+        let json_session_info;
         {
             let session = session.read().unwrap_or_else(|e| e.into_inner());
             json_session = Session::to_json(&session)?; // TODO! this sould be done async
             id = FilesSystemStorage::get_id(&session);
+            let session_info = SessionInfo::new(
+                id.clone(),
+                NaiveDateTime::new(session.date, session.time),
+                session.track.name.clone(),
+                session.laps.len(),
+            );
+            json_session_info = SessionInfo::to_json(&session_info)?; // TODO! this sould be done async
         }
-        let file_path = self.get_session_file_path(&id);
-        let mut file = tokio::fs::File::create(&file_path).await?;
-        file.write_all(json_session.as_bytes()).await?;
-        file.sync_all().await?;
+        self.save_session(&id, &json_session).await?;
+        self.save_session_info(&id, &json_session_info).await?;
         Ok(id)
+    }
+
+    /// Saves the session payload for the given `id`.
+    ///
+    /// The target file path is resolved via `get_session_file_path(id)`. The file is
+    /// created or truncated, the UTF-8 bytes of `session` are written, and the data is
+    /// flushed to disk via `sync_all`.
+    ///
+    /// Errors:
+    /// - Propagates I/O errors from file creation, writing, or syncing.
+    /// - Returns `io::ErrorKind::NotFound` if the parent directory does not exist.
+    async fn save_session(&self, id: &str, session: &str) -> io::Result<()> {
+        let file_path = self.get_session_file_path(id);
+        self.save_bytes(&file_path, session.as_bytes()).await?;
+        Ok(())
+    }
+
+    /// Saves the session metadata/info payload for the given `id`.
+    ///
+    /// The target file path is resolved via `get_session_info_file_path(id)`. The file is
+    /// created or truncated, the UTF-8 bytes of `session_info` are written, and the data is
+    /// flushed to disk via `sync_all`.
+    ///
+    /// Errors:
+    /// - Propagates I/O errors from file creation, writing, or syncing.
+    /// - Returns `io::ErrorKind::NotFound` if the parent directory does not exist.
+    async fn save_session_info(&self, id: &str, session_info: &str) -> io::Result<()> {
+        let file_path = self.get_session_info_file_path(id);
+        self.save_bytes(&file_path, session_info.as_bytes()).await?;
+        Ok(())
+    }
+
+    /// Writes arbitrary bytes to the file at `path`, ensuring they are persisted.
+    ///
+    /// The file is created if it does not exist, or truncated if it does. After writing
+    /// `data`, the file is explicitly synced to ensure durability.
+    ///
+    /// Errors:
+    /// - Propagates I/O errors from file creation (`tokio::fs::File::create`),
+    ///   writing (`AsyncWriteExt::write_all`), and syncing (`File::sync_all`).
+    /// - Returns `io::ErrorKind::NotFound` if any parent directory is missing.
+    async fn save_bytes(&self, path: &str, data: &[u8]) -> io::Result<()> {
+        let mut file = tokio::fs::File::create(path).await?;
+        file.write_all(data).await?;
+        file.sync_all().await?;
+        Ok(())
     }
 
     async fn load_file(&self, file_path: &str) -> io::Result<String> {
@@ -93,12 +166,93 @@ impl FilesSystemStorage {
         Ok(json)
     }
 
+    /// Deletes the `.info` metadata file for the given session `id`.
+    ///
+    /// The target path is constructed as `<session_root_dir>/<id>.info`. If the file
+    /// exists, it is removed asynchronously. If it does not exist, an
+    /// `io::ErrorKind::NotFound` is returned.
+    ///
+    /// Errors:
+    /// - Propagates I/O errors from `tokio::fs::remove_file`.
+    /// - May return `io::ErrorKind::NotFound` if the file is absent.
+    async fn delete_info(&self, id: &str) -> io::Result<()> {
+        let mut file_path = std::path::PathBuf::from(&self.session_root_dir);
+        file_path.push(id);
+        file_path.set_extension("info");
+        if exists(&file_path).is_ok() {
+            tokio::fs::remove_file(file_path).await?;
+            return Ok(());
+        }
+        Err(io::Error::from(io::ErrorKind::NotFound))
+    }
+
     async fn delete(&self, id: &str) -> io::Result<()> {
         let file_path = self.get_session_file_path(id);
         if exists(&file_path).is_ok() {
             tokio::fs::remove_file(file_path).await?;
             return Ok(());
         }
+        Err(io::Error::from(io::ErrorKind::NotFound))
+    }
+
+    /// Load all persisted `SessionInfo` entries from the session root directory.
+    ///
+    /// Behavior:
+    /// - Scans `self.session_root_dir` for files with the `.info` extension.
+    /// - Reads each file, deserializes JSON into `SessionInfo`, and collects valid entries.
+    /// - Logs and skips files that fail to load or parse; non-file entries are ignored.
+    /// - Sorts the resulting list by `id` in ascending order.
+    ///
+    /// Returns:
+    /// - `Ok(Arc<Vec<SessionInfo>>)` on success (possibly an empty vector).
+    /// - `Err(io::ErrorKind::NotFound)` if the session folder is missing.
+    /// - Other `io::Error`s for unexpected I/O failures.
+    async fn load_session_infos(&self) -> io::Result<Arc<Vec<SessionInfo>>> {
+        if exists(&self.session_root_dir).is_ok() {
+            let mut dirs = read_dir(&self.session_root_dir).await?;
+            let mut infos = Vec::<SessionInfo>::new();
+            while let Some(entry) = dirs.next_entry().await? {
+                let metadata = entry.metadata().await?;
+                if !metadata.file_type().is_file() {
+                    continue;
+                }
+                if let Some(ext) = entry.path().extension()
+                    && ext == "info"
+                    && let Some(id) = entry.path().file_stem()
+                {
+                    let file_path = entry.path().to_string_lossy().to_string();
+                    match self.load_file(&file_path).await {
+                        Ok(json) => match SessionInfo::from_json(&json) {
+                            Ok(info) => {
+                                debug!(
+                                    "Loaded session info with id {} from file {}",
+                                    id.to_string_lossy().to_string(),
+                                    file_path
+                                );
+                                infos.push(info);
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to parse session info from file {}. Error: {}",
+                                    file_path, e
+                                );
+                                continue;
+                            }
+                        },
+                        Err(e) => {
+                            error!(
+                                "Failed to load session info from file {}. Error: {}",
+                                file_path, e
+                            );
+                            continue;
+                        }
+                    }
+                }
+            }
+            infos.sort_by(|a, b| a.id.cmp(&b.id));
+            return Ok(Arc::new(infos));
+        }
+        error!("Not session folder found in {}", self.session_root_dir);
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 
@@ -126,23 +280,33 @@ impl FilesSystemStorage {
             result.sort();
             return Ok(result);
         }
-        error!("Not session folder found in {}", self.session_root_dir);
+        error!("Not folder found in {}", self.session_root_dir);
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 
+    /// Handle a request to load stored session identifiers and reply with the result.
+    ///
+    /// Behavior:
+    /// - Attempts to load all persisted `SessionInfo` entries via `load_session_infos`.
+    /// - On success, returns the loaded infos; on failure, responds with an empty list.
+    /// - Emits `EventKind::LoadStoredSessionIdsResponseEvent` back to the requester.
+    ///
+    /// The response mirrors the original request id and sender address.
     async fn handle_load_stored_ids_request(&self, req: &EmptyRequestPtr) {
-        let ids = self.ids(&self.session_root_dir, "session").await;
-        let data = match ids {
-            Ok(ids) => {
-                debug!("Load session ids {:?} from {}", ids, self.session_root_dir);
-                std::sync::Arc::new(ids)
+        let infos = match self.load_session_infos().await {
+            Ok(infos) => {
+                debug!(
+                    "Load session infos {:?} from {}",
+                    infos, self.session_root_dir
+                );
+                infos
             }
-            Err(_) => std::sync::Arc::new(vec![]),
+            Err(_) => Arc::new(vec![]),
         };
         let resp = StoredSessionIdsResponsePtr::new(Response {
             id: req.id,
             receiver_addr: req.sender_addr,
-            data,
+            data: infos,
         });
         let _ = self.module_ctx.sender.send(Event {
             kind: EventKind::LoadStoredSessionIdsResponseEvent(resp),
@@ -207,30 +371,26 @@ impl FilesSystemStorage {
         });
     }
 
+    /// Handle a delete-session request and emit a response event.
+    ///
+    /// Workflow:
+    /// - Extract the session `id` from the request.
+    /// - Attempt to delete the session info/metadata first.
+    /// - If that succeeds, attempt to delete the session data itself.
+    /// - Build and send a `DeleteSessionResponseEvent` containing the outcome.
+    ///
+    /// The response echoes the original request id and sender address, and carries
+    /// the first encountered error (if any) as its data.
     async fn handle_delete_request(&self, req: &DeleteSessionRequestPtr) {
         let id = &req.data;
-        let delete_result = self.delete(id).await;
-        let data = match delete_result {
-            Ok(_) => {
-                debug!(
-                    "Deleted session with id {} in {}",
-                    id, self.session_root_dir
-                );
-                Ok(())
-            }
-            Err(e) => {
-                debug!(
-                    "Failed to delete session with id {} in {}",
-                    id, self.session_root_dir
-                );
-                Err(e.kind())
-            }
-        };
-
+        let mut result = self.delete_info(id).await.map_err(|e| e.kind());
+        if result.is_ok() {
+            result = self.delete(id).await.or(result);
+        }
         let resp = DeleteSessionResponsePtr::new(Response {
             id: req.id,
             receiver_addr: req.sender_addr,
-            data,
+            data: result,
         });
         let _ = self.module_ctx.sender.send(Event {
             kind: EventKind::DeleteSessionResponseEvent(resp),
@@ -327,6 +487,17 @@ impl FilesSystemStorage {
         let mut file_path = std::path::PathBuf::from(&self.session_root_dir);
         file_path.push(id);
         file_path.set_extension("session");
+        file_path.to_string_lossy().to_string()
+    }
+
+    /// Build the absolute path to the session info file for the given session `id`.
+    ///
+    /// The path is constructed as: `<session_root_dir>/<id>.info`.
+    /// Returns the path as an owned `String` (via lossy conversion from `OsStr`).
+    fn get_session_info_file_path(&self, id: &str) -> String {
+        let mut file_path = std::path::PathBuf::from(&self.session_root_dir);
+        file_path.push(id);
+        file_path.set_extension("info");
         file_path.to_string_lossy().to_string()
     }
 
