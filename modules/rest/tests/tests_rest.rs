@@ -39,13 +39,13 @@ async fn get_session_request_ids() {
                     data: Arc::new(vec![
                         SessionInfo {
                             id: "session_1".to_string(),
-                            date: chrono::NaiveDate::default(),
+                            date: chrono::NaiveDateTime::default(),
                             track_name: "".to_string(),
                             laps: 0,
                         },
                         SessionInfo {
                             id: "session_2".to_string(),
-                            date: chrono::NaiveDate::default(),
+                            date: chrono::NaiveDateTime::default(),
                             track_name: "".to_string(),
                             laps: 0,
                         },

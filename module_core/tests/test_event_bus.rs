@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use common::session::SessionInfo;
 use module_core::{test_helper::register_response_event, *};
 use std::sync::Arc;
@@ -37,7 +37,7 @@ pub async fn test_wait_for_event() {
                 0xFA,
                 Arc::new(vec![SessionInfo {
                     id: "session1".to_string(),
-                    date: NaiveDate::default(),
+                    date: NaiveDateTime::default(),
                     track_name: "Test Track".to_string(),
                     laps: 0_usize,
                 }]),

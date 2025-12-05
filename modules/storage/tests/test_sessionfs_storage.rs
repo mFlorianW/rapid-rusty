@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-use common::test_helper::session::get_session;
+use chrono::NaiveDateTime;
+use common::{session::SessionInfo, test_helper::session::get_session};
 use core::panic;
 use module_core::{
     EmptyRequestPtr, Event, EventBus, EventKind, EventKindType, Request, SaveSessionRequestPtr,
@@ -11,6 +12,7 @@ use module_core::{
 };
 use std::{
     fs::create_dir,
+    io::Write,
     sync::{Arc, RwLock},
 };
 use std::{os::unix::fs::MetadataExt, time::Duration};
@@ -29,6 +31,26 @@ fn create_empty_session(id: &str, folder_name: &str) {
         .unwrap_or_else(|err| panic!("Failed to create file {file}. Reason: {err}"));
 }
 
+fn create_session_info(id: &str, folder_name: &str) {
+    let file = format!("{}/session/{}.info", get_path(folder_name), id);
+    let _ = create_dir(format!("{}/session", get_path(folder_name)));
+    let info = SessionInfo::new(
+        id.to_owned(),
+        get_session_time(),
+        "Oschersleben".to_owned(),
+        12_usize,
+    );
+    if let Ok(true) = std::fs::exists(&file) {
+        std::fs::remove_file(&file)
+            .unwrap_or_else(|err| panic!("Failed to remove file {file}. Reason: {err}"));
+    }
+    let mut info_file = std::fs::File::create(&file)
+        .unwrap_or_else(|err| panic!("Failed to create file {file}. Reason: {err}"));
+    let _ = info_file
+        .write(SessionInfo::to_json(&info).unwrap().as_bytes())
+        .unwrap_or_else(|err| panic!("Failed to write file {file}. Reason: {err}"));
+}
+
 fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
     let ids = vec![
         "oschersleben_01_01_1970_00_00_00_000".to_owned(),
@@ -36,7 +58,9 @@ fn init_none_empty_test(test_folder_name: &str) -> Vec<String> {
     ];
     setup_empty_test_folder(test_folder_name);
     create_empty_session(&ids[0], test_folder_name);
+    create_session_info(&ids[0], test_folder_name);
     create_empty_session(&ids[1], test_folder_name);
+    create_session_info(&ids[1], test_folder_name);
     ids
 }
 
@@ -65,6 +89,10 @@ fn get_session_ids(folder_name: &str) -> Vec<String> {
         panic!("Failed to read session ids in {}", &path);
     }
     ids
+}
+
+fn get_session_time() -> NaiveDateTime {
+    NaiveDateTime::parse_from_str("1970-01-01T13:00:00.000", "%Y-%m-%dT%H:%M:%S.%3f").unwrap()
 }
 
 async fn get_session_size_in_bytes(folder_name: &str, id: &str) -> u64 {
@@ -103,8 +131,14 @@ pub async fn read_stored_session_ids() {
     .await;
     let payload =
         &**payload_ref!(ids_event.kind, EventKind::LoadStoredSessionIdsResponseEvent).unwrap();
-    assert_eq!(*payload.data[0].id, exp_ids[0]);
-    assert_eq!(*payload.data[1].id, exp_ids[1]);
+    assert_eq!(payload.data[0].id, exp_ids[0]);
+    assert_eq!(payload.data[0].date, get_session_time());
+    assert_eq!(payload.data[0].track_name, "Oschersleben");
+    assert_eq!(payload.data[0].laps, 12_usize);
+    assert_eq!(payload.data[1].id, exp_ids[1]);
+    assert_eq!(payload.data[1].date, get_session_time());
+    assert_eq!(payload.data[1].track_name, "Oschersleben");
+    assert_eq!(payload.data[1].laps, 12_usize);
     assert_eq!(payload.id, 10);
     assert_eq!(payload.receiver_addr, 20);
 

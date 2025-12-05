@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 use crate::{lap::Lap, serde::date, serde::time, track::Track};
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use serde::{Deserialize, Serialize};
 
 /// `SessionInfo` contains only high-level metadata useful for listing or indexing
@@ -20,9 +20,48 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionInfo {
     pub id: String,
-    pub date: NaiveDate,
+    pub date: NaiveDateTime,
     pub track_name: String,
     pub laps: usize,
+}
+
+impl SessionInfo {
+    /// Creates a new `SessionInfo` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` – Unique identifier of the session.
+    /// * `date` – Calendar date of the session (date-only, no time zone).
+    /// * `track_name` – Track on which the session took place.
+    /// * `laps` – Total number of completed laps in the session.
+    pub fn new(id: String, date: NaiveDateTime, track_name: String, laps: usize) -> Self {
+        SessionInfo {
+            id,
+            date,
+            track_name,
+            laps,
+        }
+    }
+
+    /// Deserialize a `SessionInfo` from a JSON string.
+    ///
+    /// Returns `Ok(SessionInfo)` if the input is valid JSON matching the
+    /// `SessionInfo` structure, or a `serde_json::Error` if parsing fails.
+    ///
+    /// This is a convenience wrapper around `serde_json::from_str`.
+    pub fn from_json(json: &str) -> serde_json::Result<SessionInfo> {
+        serde_json::from_str(json)
+    }
+
+    /// Serialize a `SessionInfo` into a JSON string.
+    ///
+    /// Returns `Ok(String)` containing the JSON representation on success,
+    /// or a `serde_json::Error` if serialization fails.
+    ///
+    /// This is a convenience wrapper around `serde_json::to_string`.
+    pub fn to_json(session_info: &SessionInfo) -> serde_json::Result<String> {
+        serde_json::to_string(session_info)
+    }
 }
 
 /// Represents a recorded driving session consisting of one or more laps.
