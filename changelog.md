@@ -1,5 +1,21 @@
 # Releases
 
+## Release Note v0.6.1
+
+### Documentation
+- document the new sessions response
+
+### Housekeeping
+- add reuse support
+
+### Refactoring
+- fs storage load/save/delete and update the session info data
+- rest return a session info instead of ids only
+- make a log in every failing session request path
+- use correct application/type for the /v1/sessions/{id} resource
+
+
+
 ## Release Note v0.6.0
 
 ### Features
