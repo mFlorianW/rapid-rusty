@@ -6,7 +6,10 @@
 //!
 //! Provides the interfaces and implementation to store and load session and track data on linux based systems.
 
-use common::{session::Session, track::Track};
+use common::{
+    session::{Session, SessionInfo},
+    track::Track,
+};
 use module_core::{
     DeleteSessionRequestPtr, DeleteSessionResponsePtr, EmptyRequestPtr, Event, EventKind,
     LoadSessionRequestPtr, LoadSessionResponsePtr, LoadStoredTrackIdsResponsePtr,
@@ -134,15 +137,28 @@ impl FilesSystemStorage {
         let ids = self.ids(&self.session_root_dir, "session").await;
         let data = match ids {
             Ok(ids) => {
-                debug!("Load session ids {:?} from {}", ids, self.session_root_dir);
+                debug!(
+                    "Load session infos ids {:?} from {}",
+                    ids, self.session_root_dir
+                );
                 std::sync::Arc::new(ids)
             }
             Err(_) => std::sync::Arc::new(vec![]),
         };
+        let mut infos = Vec::<SessionInfo>::new();
+        for id in data.iter() {
+            let info = SessionInfo {
+                id: id.clone(),
+                date: chrono::NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
+                track_name: "Unknown".to_string(),
+                laps: 0,
+            };
+            infos.push(info);
+        }
         let resp = StoredSessionIdsResponsePtr::new(Response {
             id: req.id,
             receiver_addr: req.sender_addr,
-            data,
+            data: infos.into(),
         });
         let _ = self.module_ctx.sender.send(Event {
             kind: EventKind::LoadStoredSessionIdsResponseEvent(resp),

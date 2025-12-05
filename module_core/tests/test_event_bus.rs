@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+use chrono::NaiveDate;
+use common::session::SessionInfo;
 use module_core::{test_helper::register_response_event, *};
 use std::sync::Arc;
 
@@ -33,7 +35,12 @@ pub async fn test_wait_for_event() {
             kind: EventKind::LoadStoredSessionIdsResponseEvent(Response::new(
                 0,
                 0xFA,
-                Arc::new(vec!["session1".to_string()]),
+                Arc::new(vec![SessionInfo {
+                    id: "session1".to_string(),
+                    date: NaiveDate::default(),
+                    track_name: "Test Track".to_string(),
+                    laps: 0_usize,
+                }]),
             )),
         },
         event_bus.context(),
@@ -57,5 +64,5 @@ pub async fn test_wait_for_event() {
     let response = payload_ref!(event.kind, EventKind::LoadStoredSessionIdsResponseEvent).unwrap();
     assert_eq!(response.id, 0);
     assert_eq!(response.receiver_addr, 0xFA);
-    assert_eq!(*response.data, vec!["session1".to_string()]);
+    assert_eq!(*response.data[0].id, "session1".to_string());
 }

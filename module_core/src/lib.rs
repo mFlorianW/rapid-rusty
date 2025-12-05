@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-use common::{session::Session, track::Track};
+use common::{
+    session::{Session, SessionInfo},
+    track::Track,
+};
 use std::{
     io::ErrorKind,
     sync::{
@@ -197,7 +200,7 @@ pub type DurationPtr = Arc<std::time::Duration>;
 pub type EmptyRequestPtr = Arc<Request<()>>;
 
 /// A thread-safe, shared response containing stored session identifiers.
-pub type StoredSessionIdsResponsePtr = Arc<Response<Arc<Vec<String>>>>;
+pub type StoredSessionIdsResponsePtr = Arc<Response<Arc<Vec<SessionInfo>>>>;
 
 /// A thread-safe, shared pointer to a save session request.
 pub type SaveSessionRequestPtr = Arc<Request<Arc<RwLock<Session>>>>;

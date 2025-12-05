@@ -103,7 +103,8 @@ pub async fn read_stored_session_ids() {
     .await;
     let payload =
         &**payload_ref!(ids_event.kind, EventKind::LoadStoredSessionIdsResponseEvent).unwrap();
-    assert_eq!(*payload.data, exp_ids);
+    assert_eq!(*payload.data[0].id, exp_ids[0]);
+    assert_eq!(*payload.data[1].id, exp_ids[1]);
     assert_eq!(payload.id, 10);
     assert_eq!(payload.receiver_addr, 20);
 

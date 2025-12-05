@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 use async_trait::async_trait;
-use common::session::Session;
+use common::session::{Session, SessionInfo};
 use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};
 use rocket::{
     State,
@@ -135,7 +135,7 @@ impl Module for Rest {
 ///
 /// # Returns
 /// * `Vec<String>` - The received session IDs.
-async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
+async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<SessionInfo>> {
     let mut ctx_lock = ctx.lock().await;
     let req_id = ctx_lock.request_id();
     let addr = ctx_lock.module_addr;
@@ -175,7 +175,7 @@ async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
             Some(resp) => resp.data.clone(),
             None => {
                 error!("Received invalid LoadStoredSessionIdsResponseEvent payload");
-                Arc::new(Vec::<String>::new())
+                Arc::new(Vec::<SessionInfo>::new())
             }
         },
         Err(e) => {
@@ -183,7 +183,7 @@ async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
                 "Error while waiting for LoadStoredSessionIdsResponseEvent: {:?}",
                 e
             );
-            Arc::new(Vec::<String>::new())
+            Arc::new(Vec::<SessionInfo>::new())
         }
     }
 }
@@ -195,7 +195,7 @@ async fn request_session_ids(ctx: &Arc<Mutex<RestCtx>>) -> Arc<Vec<String>> {
 #[serde(crate = "rocket::serde")]
 struct SessionIdsResponse {
     total: usize,
-    ids: Vec<String>,
+    sessions: Vec<SessionInfo>,
 }
 
 /// Retrieves all stored session IDs.
@@ -210,7 +210,7 @@ async fn get_session_ids(ctx: &State<Arc<Mutex<RestCtx>>>) -> Json<SessionIdsRes
     let ids = request_session_ids(ctx).await;
     let resp = SessionIdsResponse {
         total: ids.len(),
-        ids: (*ids).clone(),
+        sessions: (*ids).clone(),
     };
     Json(resp)
 }

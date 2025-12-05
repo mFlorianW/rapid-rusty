@@ -6,6 +6,25 @@ use crate::{lap::Lap, serde::date, serde::time, track::Track};
 use chrono::{NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};
 
+/// `SessionInfo` contains only high-level metadata useful for listing or indexing
+/// sessions without loading full lap data.
+///
+/// # Fields
+///
+/// - `id` – Unique identifier of the session.
+/// - `date` – Calendar date of the session (date-only, no time zone).
+/// - `track_name` – Track on which the session took place.
+/// - `laps` – Total number of completed laps in the session.
+///
+/// See also: [`Session`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub id: String,
+    pub date: NaiveDate,
+    pub track_name: String,
+    pub laps: usize,
+}
+
 /// Represents a recorded driving session consisting of one or more laps.
 ///
 /// A `Session` is a top-level structure used to store the result of a
