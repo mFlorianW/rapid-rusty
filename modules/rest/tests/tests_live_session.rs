@@ -104,7 +104,7 @@ async fn test_sector_finished() {
         .expect("Failed to connect to WebSocket");
     let (_, mut read) = ws_stream.split();
     eb.publish(&Event {
-        kind: EventKind::SectorFinshedEvent(Duration::from_millis(1).into()),
+        kind: EventKind::SectorFinishedEvent(Duration::from_millis(1).into()),
     });
 
     let msg = tokio::time::timeout(Duration::from_millis(100), read.next())

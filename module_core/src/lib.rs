@@ -271,7 +271,7 @@ pub enum EventKind {
 
     /// Indicates that a sector has been completed.
     /// This event carries a [`std:time::Duration`] structure
-    SectorFinshedEvent(DurationPtr),
+    SectorFinishedEvent(DurationPtr),
 
     /// Represents the current laptime (may be used for reporting purposes).
     /// This event carries a [`std:time::Duration`] structure.

@@ -121,7 +121,7 @@ impl Module for ActiveSession {
                                     debug!("Lap Started Event received in ActiveSession module");
                                     self.on_lap_started();
                                 },
-                                EventKind::SectorFinshedEvent(duration) => {
+                                EventKind::SectorFinishedEvent(duration) => {
                                     debug!("Sector Finished Event received in ActiveSession module");
                                     self.on_sector_finished(duration);
                                 },

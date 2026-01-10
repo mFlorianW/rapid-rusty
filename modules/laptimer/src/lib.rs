@@ -184,7 +184,7 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     fn handle_sector_finsihed(&mut self) {
         let duration = self.elapsed_time_source.elapsed_time() - self.sector_start;
         self.notify_consumer(Event {
-            kind: EventKind::SectorFinshedEvent(duration.into()),
+            kind: EventKind::SectorFinishedEvent(duration.into()),
         });
         self.sector_start = self.elapsed_time_source.elapsed_time();
     }

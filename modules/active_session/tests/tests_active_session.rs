@@ -56,13 +56,13 @@ async fn test_store_session_when_lap_finished() {
         kind: EventKind::LapStartedEvent,
     });
     eb.publish(&Event {
-        kind: EventKind::SectorFinshedEvent(std::time::Duration::from_secs_f32(10.250).into()),
+        kind: EventKind::SectorFinishedEvent(std::time::Duration::from_secs_f32(10.250).into()),
     });
     eb.publish(&Event {
-        kind: EventKind::SectorFinshedEvent(std::time::Duration::from_secs_f32(10.250).into()),
+        kind: EventKind::SectorFinishedEvent(std::time::Duration::from_secs_f32(10.250).into()),
     });
     eb.publish(&Event {
-        kind: EventKind::SectorFinshedEvent(std::time::Duration::from_secs_f32(10.250).into()),
+        kind: EventKind::SectorFinishedEvent(std::time::Duration::from_secs_f32(10.250).into()),
     });
     eb.publish(&Event {
         kind: EventKind::LapFinishedEvent(std::time::Duration::from_secs_f32(30.750).into()),

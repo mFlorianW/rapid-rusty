@@ -125,7 +125,7 @@ pub(crate) fn ws_live_session_handler(
                                 EventKind::LapFinishedEvent (laptimer)=> {
                                     yield Message::Text(serialize_laptime_event(&laptimer, "lap_finished"));
                                 }
-                                EventKind::SectorFinshedEvent(sector) => {
+                                EventKind::SectorFinishedEvent(sector) => {
                                     yield Message::Text(serialize_laptime_event(&sector, "sector_finished"));
                                 }
                                 _ => {}
