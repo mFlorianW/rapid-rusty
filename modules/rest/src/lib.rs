@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+use crate::live_session::ws_live_session_handler;
 use async_trait::async_trait;
 use common::session::{Session, SessionInfo};
 use module_core::{Event, EventKind, EventKindType, Module, ModuleCtx, Request, payload_ref};
@@ -19,6 +20,9 @@ use tokio::sync::Mutex;
 #[macro_use]
 extern crate rocket;
 
+/// Module for handling live session WebSocket connections.
+mod live_session;
+
 /// Represents the REST module, providing RESTful API functionality.
 ///
 /// This struct encapsulates the shared context and methods for managing the REST server.
@@ -29,7 +33,7 @@ pub struct Rest {
 /// Internal context for the REST module.
 ///
 /// Holds shared state and configuration required for RESTful operations.
-struct RestCtx {
+pub(crate) struct RestCtx {
     ctx: ModuleCtx,
     module_addr: u64,
     request_id: u64,
@@ -395,7 +399,12 @@ async fn launch_rest_server(
     rocket::custom(figment)
         .mount(
             "/",
-            rocket::routes![get_session_ids, get_session, delete_session],
+            rocket::routes![
+                get_session_ids,
+                get_session,
+                delete_session,
+                ws_live_session_handler
+            ],
         )
         .manage(ctx)
         .ignite()
