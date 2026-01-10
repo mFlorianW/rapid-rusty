@@ -2,25 +2,19 @@
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+mod test_utils;
+
 use common::{
     session::{Session, SessionInfo},
     test_helper::session::get_session,
 };
 use module_core::{
-    Event, EventBus, EventKind, EventKindType, Module, ModuleCtx, Response,
+    Event, EventBus, EventKind, EventKindType, Response,
     test_helper::{register_response_event, stop_module},
 };
-use rest::Rest;
 use serial_test::serial;
 use std::sync::{Arc, RwLock};
-use tokio::task::JoinHandle;
-
-fn create_module(ctx: ModuleCtx) -> JoinHandle<Result<(), ()>> {
-    tokio::spawn(async move {
-        let mut rest = Rest::new(ctx);
-        rest.run().await
-    })
-}
+use test_utils::create_module;
 
 #[tokio::test]
 #[test_log::test]

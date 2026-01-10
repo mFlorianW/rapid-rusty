@@ -92,11 +92,11 @@ pub async fn drive_whole_map_with_sectors() {
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            EventKindType::SectorFinshedEvent,
+            EventKindType::SectorFinishedEvent,
         )
         .await;
         assert_eq!(
-            **payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            **payload_ref!(event.kind, EventKind::SectorFinishedEvent).unwrap(),
             std::time::Duration::new(10, 120000000)
         );
     }
@@ -114,11 +114,11 @@ pub async fn drive_whole_map_with_sectors() {
         let event = wait_for_event(
             &mut event_bus.subscribe(),
             Duration::from_millis(100),
-            EventKindType::SectorFinshedEvent,
+            EventKindType::SectorFinishedEvent,
         )
         .await;
         assert_eq!(
-            **payload_ref!(event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            **payload_ref!(event.kind, EventKind::SectorFinishedEvent).unwrap(),
             std::time::Duration::new(10, 130000000)
         );
     }
@@ -138,7 +138,7 @@ pub async fn drive_whole_map_with_sectors() {
         let sector_finished_event = wait_for_event(
             &mut receiver,
             std::time::Duration::from_millis(100),
-            EventKindType::SectorFinshedEvent,
+            EventKindType::SectorFinishedEvent,
         );
         let mut receiver = event_bus.subscribe();
         let lap_finished_event = wait_for_event(
@@ -155,7 +155,7 @@ pub async fn drive_whole_map_with_sectors() {
         let (sector_finished_event, lap_finished_event, lap_started_event) =
             tokio::join!(sector_finished_event, lap_finished_event, lap_started_event);
         assert_eq!(
-            **payload_ref!(sector_finished_event.kind, EventKind::SectorFinshedEvent).unwrap(),
+            **payload_ref!(sector_finished_event.kind, EventKind::SectorFinishedEvent).unwrap(),
             std::time::Duration::new(10, 140000000)
         );
         assert_eq!(
@@ -167,6 +167,39 @@ pub async fn drive_whole_map_with_sectors() {
             EventKindType::LapStartedEvent
         );
     }
+
+    stop_module(&event_bus, &mut laptimer_handle).await;
+}
+
+#[tokio::test]
+#[test_log::test]
+pub async fn announce_laptime_on_running_lap() {
+    let event_bus = EventBus::default();
+    let elapsed_time_source = ElapsedTestTimeSource::default();
+    let elapsed_time_source_sender = elapsed_time_source.sender();
+    let mut laptimer_handle = create_laptimer(&event_bus, elapsed_time_source);
+
+    // Lapstart
+    publish_position(&event_bus, &get_finishline_postion1());
+    publish_position(&event_bus, &get_finishline_postion2());
+    publish_position(&event_bus, &get_finishline_postion3());
+    publish_position(&event_bus, &get_finishline_postion4());
+
+    // Set elapsed time to 1ms
+    set_elapsed_time(
+        &elapsed_time_source_sender,
+        &std::time::Duration::from_millis(1),
+    );
+    let event = wait_for_event(
+        &mut event_bus.subscribe(),
+        Duration::from_millis(100),
+        EventKindType::CurrentLaptimeEvent,
+    )
+    .await;
+    assert_eq!(
+        **payload_ref!(event.kind, EventKind::CurrentLaptimeEvent).unwrap(),
+        Duration::from_millis(1)
+    );
 
     stop_module(&event_bus, &mut laptimer_handle).await;
 }

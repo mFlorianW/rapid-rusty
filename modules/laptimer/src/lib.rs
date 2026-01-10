@@ -8,7 +8,9 @@ use common::position::{GnssPosition, Position};
 use core::f64;
 use module_core::{Event, EventKind, Module, ModuleCtx, Request};
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Notify;
 use tracing::{error, info};
 
 /// Represents status updates emitted by the lap timer.
@@ -61,6 +63,9 @@ pub struct SimpleLaptimer<T: ElapsedTimeSource = MonotonicTimeSource> {
     sector: usize,
     sector_start: std::time::Duration,
     module_ctx: ModuleCtx,
+    notify_laptime: Arc<Notify>,
+    laptime_notifaction_active: bool,
+    notification_timer_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl SimpleLaptimer<MonotonicTimeSource> {
@@ -81,6 +86,9 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
             sector: 0,
             sector_start: std::time::Duration::default(),
             module_ctx: ctx,
+            notify_laptime: Arc::new(Notify::new()),
+            laptime_notifaction_active: false,
+            notification_timer_handle: None,
         }
     }
 
@@ -176,7 +184,7 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     fn handle_sector_finsihed(&mut self) {
         let duration = self.elapsed_time_source.elapsed_time() - self.sector_start;
         self.notify_consumer(Event {
-            kind: EventKind::SectorFinshedEvent(duration.into()),
+            kind: EventKind::SectorFinishedEvent(duration.into()),
         });
         self.sector_start = self.elapsed_time_source.elapsed_time();
     }
@@ -213,6 +221,22 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
     fn notify_consumer(&self, event: Event) {
         let _ = self.module_ctx.sender.send(event);
     }
+
+    fn announce_laptime(&self) {
+        let _ = self.module_ctx.sender.send(Event {
+            kind: EventKind::CurrentLaptimeEvent(self.elapsed_time_source.elapsed_time().into()),
+        });
+    }
+}
+
+fn announce_laptime_timer_task(notify: Arc<Notify>) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_millis(1));
+        loop {
+            interval.tick().await;
+            notify.notify_one();
+        }
+    })
 }
 
 #[async_trait::async_trait]
@@ -232,12 +256,22 @@ impl<T: ElapsedTimeSource + Default + Send> Module for SimpleLaptimer<T> {
         let mut run = true;
         while run {
             tokio::select! {
+                _ = self.notify_laptime.notified() => {
+                    self.announce_laptime();
+                },
                 event = self.module_ctx.receiver.recv() => {
                     match event {
                         Ok(event) => {
                             match event.kind  {
                                EventKind::QuitEvent => {
                                    run = false
+                               },
+                               EventKind::LapStartedEvent => {
+                                  if !self.laptime_notifaction_active {
+                                    let notify = self.notify_laptime.clone();
+                                    self.notification_timer_handle = Some(announce_laptime_timer_task(notify));
+                                    self.laptime_notifaction_active = true;
+                                  }
                                },
                                EventKind::GnssPositionEvent(pos) => {
                                    self.update_position(&pos);
