@@ -1,5 +1,19 @@
 # Releases
 
+## Release Note v0.7.0
+
+### Documentation
+- document the websocket interface
+
+### Features
+- provide lap events by websocket
+- announce laptime in one millisecond interval
+
+### Housekeeping
+- fix typo in SectorFinishedEvent
+
+
+
 ## Release Note v0.6.1
 
 ### Documentation
