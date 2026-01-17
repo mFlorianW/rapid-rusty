@@ -231,7 +231,7 @@ impl<T: ElapsedTimeSource + Default> SimpleLaptimer<T> {
 
 fn announce_laptime_timer_task(notify: Arc<Notify>) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(1));
+        let mut interval = tokio::time::interval(Duration::from_millis(25));
         loop {
             interval.tick().await;
             notify.notify_one();
