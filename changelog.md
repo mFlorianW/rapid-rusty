@@ -1,5 +1,12 @@
 # Releases
 
+## Release Note v0.7.1
+
+### Refactoring
+- only send the current laptime websocket events with 40Hz
+
+
+
 ## Release Note v0.7.0
 
 ### Documentation
