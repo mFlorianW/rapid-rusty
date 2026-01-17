@@ -12,6 +12,7 @@ These are primarily informations that either change often or it doesn't make sen
         - [Sector finished](#sector-finished-broadcast)
         - [Lap finished](#lap-finished-broadcast)
         - [Current Laptime](#current-laptime-broadcast)
+        - [Current Session](#current-session)
 - [GNSS Data /v1/gnss_data](#gnss-data-v1gnss_data)
     - [Success](#success-1)
     - [Events](#events-1)
@@ -101,6 +102,76 @@ Example JSON object:
   "event": "current_laptime",
   "data": {
     "time": "00:50:456.789"
+  }
+}
+
+```
+### Current Session
+The current session event provides the complete data of the ongoing session.
+It contains information about the track, laps, and log points recorded so far in the session.
+This event is sent when a websocket connection is established to provide the current state of the session.
+A client can use this data to synchronize its state with the ongoing session.
+The client should not display any other data until this event is received to ensure consistency.
+
+The data object in the event contains the full session data structured in the same as would be downloaded via the [REST API](https://github.com/mFlorianW/rapid-rusty/blob/main/docs/REST/Session.md#get-v1sessionsid).
+
+Example JSON object:
+```json
+{
+  "event": "current_session",
+  "data": {
+    "session": {
+      "id": 0,
+      "date": "01.01.1970",
+      "time": "13:00:00.000",
+      "track": {
+        "name": "Oschersleben",
+        "startline": {
+          "latitude": 52.025833,
+          "longitude": 11.279166
+        },
+        "finishline": {
+          "latitude": 52.025833,
+          "longitude": 11.279166
+        },
+        "sectors": [
+          {
+            "latitude": 52.025833,
+            "longitude": 11.279166
+          },
+          {
+            "latitude": 52.025833,
+            "longitude": 11.279166
+          }
+        ]
+      },
+      "laps": [
+        {
+          "sectors": [
+            "00:00:25.144",
+            "00:00:25.144",
+            "00:00:25.144",
+            "00:00:25.144"
+          ],
+          "log_points": [
+            {
+              "velocity": 100,
+              "longitude": 11,
+              "latitude": 52,
+              "time": "00:00:00.000",
+              "date": "01.01.1970"
+            },
+            {
+              "velocity": 100,
+              "longitude": 11,
+              "latitude": 52,
+              "time": "00:00:00.000",
+              "date": "01.01.1970"
+            }
+          ]
+        }
+      ]
+    }
   }
 }
 ```
