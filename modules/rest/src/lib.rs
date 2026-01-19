@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 All contributors
+// SPDX-FileCopyrightText: 2025, 2026 All contributors
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -12,6 +12,7 @@ use rocket::{
     serde::{Serialize, json::Json},
 };
 use std::{
+    collections::HashMap,
     env,
     net::Ipv4Addr,
     sync::{Arc, RwLock},
@@ -37,6 +38,7 @@ pub(crate) struct RestCtx {
     ctx: ModuleCtx,
     module_addr: u64,
     request_id: u64,
+    connections: HashMap<String, bool>,
 }
 
 impl RestCtx {
@@ -48,6 +50,52 @@ impl RestCtx {
         let id = self.request_id;
         self.request_id += 1;
         id
+    }
+
+    /// Register a new connection in the internal registry.
+    ///
+    /// Inserts the given connection ID with an initial state of `false`
+    /// (e.g., not yet synchronized). If the ID already exists, its value is
+    /// replaced.
+    ///
+    /// - conn_id: Unique identifier for the client/connection.
+    pub fn register_connection(&mut self, conn_id: &str) {
+        self.connections.insert(conn_id.to_owned(), false);
+    }
+
+    /// Unregisters a connection from the internal registry.
+    ///
+    /// Removes the entry associated with the given connection ID.
+    ///
+    /// - conn_id: Unique identifier for the client/connection.
+    pub fn unregister_connection(&mut self, conn_id: &str) {
+        self.connections.remove(conn_id);
+    }
+
+    /// Checks if a connection is marked as synchronized.
+    ///
+    /// Returns `true` if the connection with the given ID is marked as synchronized,
+    /// otherwise returns `false`.
+    ///
+    /// - conn_id: Unique identifier for the client/connection.
+    pub fn is_connection_synced(&self, conn_id: &str) -> bool {
+        match self.connections.get(conn_id) {
+            Some(synced) => *synced,
+            None => false,
+        }
+    }
+
+    /// Sets the synchronization state of a connection.
+    ///
+    /// Updates the internal state for the connection with the given ID
+    /// to reflect whether it is synchronized or not.
+    /// - conn_id: Unique identifier for the client/connection.
+    ///
+    /// - synced: New synchronization state to set for the connection.
+    pub fn set_connection_synced(&mut self, conn_id: &str, synced: bool) {
+        if let Some(entry) = self.connections.get_mut(conn_id) {
+            *entry = synced;
+        }
     }
 }
 
@@ -67,6 +115,7 @@ impl Rest {
                 ctx,
                 module_addr: 0xff,
                 request_id: 0,
+                connections: HashMap::new(),
             })),
         }
     }

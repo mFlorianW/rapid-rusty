@@ -1,11 +1,11 @@
-// SPDX-FileCopyrightText: 2025 All contributors
+// SPDX-FileCopyrightText: 2025, 2026 All contributors
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 use active_session::ActiveSession;
 use common::{lap::Lap, position::GnssPosition, test_helper::track::get_track};
 use module_core::{
-    Event, EventBus, EventKind, EventKindType, Module, Response, payload_ref,
+    Event, EventBus, EventKind, EventKindType, Module, Request, Response, payload_ref,
     test_helper::{register_response_event, stop_module, wait_for_event},
 };
 use std::time::Duration;
@@ -156,6 +156,68 @@ async fn test_store_log_points() {
         let lap = Lap {
             sectors: vec![],
             log_points: vec![gnss_position, gnss_position],
+        };
+        assert_eq!(session.laps[0], lap);
+        assert_eq!(session.track, get_track());
+    }
+
+    stop_module(&eb, &mut active_session).await;
+}
+
+#[tokio::test]
+#[test_log::test]
+async fn test_current_session_request_response() {
+    let eb = EventBus::default();
+    let mut active_session = create_module(&eb);
+
+    // Before emitting the lap start wait for the track detected event.
+    let _track_event = wait_for_event(
+        &mut eb.subscribe(),
+        Duration::from_millis(100),
+        EventKindType::DetectTrackResponseEvent,
+    )
+    .await;
+    eb.publish(&Event {
+        kind: EventKind::LapStartedEvent,
+    });
+    eb.publish(&Event {
+        kind: EventKind::LapFinishedEvent(std::time::Duration::from_secs_f32(30.750).into()),
+    });
+    debug!("Waiting for CurrentSessionRequestEvent...");
+    eb.publish(&Event {
+        kind: EventKind::CurrentSessionRequestEvent(
+            Request {
+                id: 20,
+                sender_addr: 200,
+                data: {},
+            }
+            .into(),
+        ),
+    });
+    let current_session_event = wait_for_event(
+        &mut eb.subscribe(),
+        Duration::from_millis(100),
+        EventKindType::CurrentSessionResponseEvent,
+    )
+    .await;
+
+    //scope is needed to clear the rwlock at the end.
+    {
+        let session = match payload_ref!(
+            current_session_event.kind,
+            EventKind::CurrentSessionResponseEvent
+        ) {
+            Some(response) => response.data.clone(),
+            None => {
+                panic!("Received session doesn't have a payload");
+            }
+        };
+        let session_lock = session.expect("Session data is None");
+        let session = session_lock.read().unwrap();
+        assert_eq!(session.laps.len(), 1);
+        let lap = Lap {
+            sectors: vec![],
+            log_points: vec![],
         };
         assert_eq!(session.laps[0], lap);
         assert_eq!(session.track, get_track());

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 All contributors
+// SPDX-FileCopyrightText: 2025, 2026 All contributors
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -53,6 +53,7 @@ impl Event {
             EventKind::SaveSessionRequestEvent(req) => Some(req.id),
             EventKind::LoadSessionRequestEvent(req) => Some(req.id),
             EventKind::DeleteSessionRequestEvent(req) => Some(req.id),
+            EventKind::CurrentSessionRequestEvent(req) => Some(req.id),
             EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.id),
             EventKind::SaveSessionResponseEvent(res) => Some(res.id),
             EventKind::LoadSessionResponseEvent(res) => Some(res.id),
@@ -60,6 +61,7 @@ impl Event {
             EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.id),
             EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.id),
             EventKind::DetectTrackResponseEvent(res) => Some(res.id),
+            EventKind::CurrentSessionResponseEvent(res) => Some(res.id),
             _ => None,
         }
     }
@@ -78,6 +80,7 @@ impl Event {
             EventKind::LoadStoredTrackIdsRequest(req)
             | EventKind::LoadAllStoredTracksRequestEvent(req)
             | EventKind::DetectTrackRequestEvent(req) => Some(req.sender_addr),
+            EventKind::CurrentSessionRequestEvent(req) => Some(req.sender_addr),
             EventKind::LoadStoredSessionIdsResponseEvent(res) => Some(res.receiver_addr),
             EventKind::SaveSessionResponseEvent(res) => Some(res.receiver_addr),
             EventKind::LoadSessionResponseEvent(res) => Some(res.receiver_addr),
@@ -85,6 +88,7 @@ impl Event {
             EventKind::LoadStoredTrackIdsResponseEvent(res) => Some(res.receiver_addr),
             EventKind::LoadAllStoredTracksResponseEvent(res) => Some(res.receiver_addr),
             EventKind::DetectTrackResponseEvent(res) => Some(res.receiver_addr),
+            EventKind::CurrentSessionResponseEvent(res) => Some(res.receiver_addr),
             _ => None,
         }
     }
@@ -229,6 +233,9 @@ pub type LoadStoredTracksReponsePtr = Arc<Response<Vec<Track>>>;
 /// A thread-safe shared pointer to a track detection request.
 pub type TrackDetectionResponsePtr = Arc<Response<Vec<Track>>>;
 
+/// A thread-safe shared pointer to a current session response.
+pub type CurrentSessionResponsePtr = Arc<Response<Option<Arc<RwLock<Session>>>>>;
+
 /// Generic helper macro to extract enum payloads
 #[macro_export]
 macro_rules! payload_ref {
@@ -337,6 +344,13 @@ pub enum EventKind {
     /// Event emitted after track detection finishes.
     /// Contains the `TrackDetectionResponsePtr` with detection results.
     DetectTrackResponseEvent(TrackDetectionResponsePtr),
+
+    /// Event carrying a request to get the current session.
+    CurrentSessionRequestEvent(EmptyRequestPtr),
+
+    /// Event emitted in response to a current session request.
+    /// Contains the `CurrentSessionResponsePtr` with the session data.
+    CurrentSessionResponseEvent(CurrentSessionResponsePtr),
 }
 
 /// A simple asynchronous event bus for publishing and subscribing to [`Event`]s.

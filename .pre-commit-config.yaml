@@ -17,9 +17,10 @@ repos:
 
   - repo: local
     hooks:
-    - id: check-license
-      name: check_license
-      entry: reuse lint
+    - id: reuse-annotate
+      name: REUSE Annotate
+      entry: reuse
+      args: [annotate, -c, "All contributors", -l, "GPL-2.0-or-later", --merge-copyrights ]
       language: python
-      pass_filenames: false
-      additional_dependencies: ["reuse"]
+      pass_filenames: true
+      types_or: ["rust"]
