@@ -1,5 +1,19 @@
 # Releases
 
+## Release Note v0.8.0
+
+### Documentation
+- document websocket "current_session" event
+
+### Features
+- live_session send current_session as synchronisation
+
+### Housekeeping
+- add editorconfig that removes trailing whitespaces
+- update licensing infos if they don't match
+
+
+
 ## Release Note v0.7.1
 
 ### Refactoring
