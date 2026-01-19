@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 All contributors
+// SPDX-FileCopyrightText: 2025, 2026 All contributors
 //
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use common::{lap::Lap, position::GnssPosition, session::Session};
 use module_core::{
-    DurationPtr, EventKind, Module, ModuleCtx, Request, SaveSessionRequestPtr,
+    DurationPtr, EventKind, Module, ModuleCtx, Request, Response, SaveSessionRequestPtr,
     TrackDetectionResponsePtr,
 };
 use std::sync::{Arc, RwLock};
@@ -131,6 +131,14 @@ impl Module for ActiveSession {
                                 }
                                 EventKind::GnssPositionEvent(gnss_pos) => {
                                     self.on_gnss_position(*gnss_pos);
+                                }
+                                EventKind::CurrentSessionRequestEvent(request) => {
+                                    let resp = Response {
+                                        id: request.id,
+                                        receiver_addr: request.sender_addr,
+                                        data: self.session.as_ref().map(|s| s.clone()),
+                                    };
+                                    let _ = self.ctx.publish_event(EventKind::CurrentSessionResponseEvent(resp.into()));
                                 }
                                 _ => (),
                             }
