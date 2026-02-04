@@ -2,11 +2,17 @@
 
 ## Release Note v0.8.0-b0
 
+### Features
+- development releases
+
+
+
+## Release Note v0.8.0
+
 ### Documentation
 - document websocket "current_session" event
 
 ### Features
-- development releases
 - live_session send current_session as synchronisation
 
 ### Housekeeping
