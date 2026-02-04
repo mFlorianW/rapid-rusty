@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "active_session"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "algorithm"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -335,7 +335,7 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "common"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "chrono",
  "serde",
@@ -786,7 +786,7 @@ checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "gnss"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1242,7 +1242,7 @@ dependencies = [
 
 [[package]]
 name = "laptimer"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "algorithm",
  "async-trait",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "module_core"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "rapid_headless"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "active_session",
  "clap",
@@ -1851,7 +1851,7 @@ dependencies = [
 
 [[package]]
 name = "rest"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2265,7 +2265,7 @@ dependencies = [
 
 [[package]]
 name = "storage"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2731,7 +2731,7 @@ dependencies = [
 
 [[package]]
 name = "track-detection"
-version = "0.8.0-b0"
+version = "0.9.0-b1"
 dependencies = [
  "algorithm",
  "async-trait",
